@@ -85,6 +85,48 @@ describe('buildReviewModel', () => {
     expect(model.evalGraphPoints).toHaveLength(5);
     expect(model.evalGraphPoints[0].ply).toBe(0);
     expect(model.evalGraphPoints[4].ply).toBe(4);
+    // Move 4 eval was +450 cp for White, so White win prob is ~84.7% (not artificially clamped to 100)
     expect(model.evalGraphPoints[4].whiteWinProb).toBeGreaterThan(80);
+    expect(model.evalGraphPoints[4].whiteWinProb).toBeLessThan(90);
+    expect(model.evalGraphPoints[4].playerWinProb).toBe(model.evalGraphPoints[4].whiteWinProb);
+  });
+
+  it('adapts playerWinProb to player perspective when player is Black', () => {
+    const blackGame: SavedGame = {
+      version: 1,
+      id: 'test-game-black',
+      mode: 'standard',
+      startedAt: '2026-10-04T12:00:00Z',
+      config: {
+        mode: 'standard',
+        playerColor: 'black',
+        elo: 1500,
+        botDelay: false,
+      },
+      result: '1-0', // Bot (White) wins
+      resultReason: 'White won by resignation',
+      pgn: '1. e4 e5',
+      tags: [
+        { ply: 1, fenBefore: 'start', san: 'e4', by: 'bot' },
+        { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'player' },
+      ],
+      analysis: [
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 },
+      ],
+    };
+
+    const model = buildReviewModel(blackGame);
+    expect(model.playerColor).toBe('black');
+    expect(model.botColor).toBe('white');
+
+    // Starting position: White is 52.4%, so Black (Player) is ~47.6%
+    expect(model.evalGraphPoints[0].playerWinProb).toBeCloseTo(100 - model.evalGraphPoints[0].whiteWinProb, 1);
+
+    // Terminal move (resignation): graph preserves the real engine position evaluation (~48.2% for Black)
+    expect(model.evalGraphPoints[2].whiteWinProb).toBeCloseTo(51.8, 1);
+    expect(model.evalGraphPoints[2].playerWinProb).toBeCloseTo(48.2, 1);
+    expect(model.classifiedMoves[1].playerWinProb).toBeCloseTo(48.2, 1);
   });
 });

@@ -27,10 +27,9 @@ export function evalScoreToCp(score: EvalScore): number {
   if (score.value > 0) {
     return MATE_CP_EQUIVALENT;
   }
-  if (score.value < 0) {
-    return -MATE_CP_EQUIVALENT;
-  }
-  return 0;
+  // When score.value <= 0 (e.g. mate 0 or mate -N), side to move is in checkmate
+  // or getting checkmated: this is a terminal loss for the side to move.
+  return -MATE_CP_EQUIVALENT;
 }
 
 /**

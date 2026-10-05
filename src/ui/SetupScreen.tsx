@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useGameStore } from '../game/gameStore';
-import type { Color, InProgressGame } from '../game/types';
+import type { Color, InProgressGame, SavedGame } from '../game/types';
 import { ELO_MAX, ELO_MIN } from '../logic/config';
+import { clearSavedGames, deleteSavedGame, loadSavedGames } from '../storage/savedGames';
 import { loadInProgress } from '../storage/inProgress';
-import { loadSavedGames } from '../storage/savedGames';
 
 type ColorChoice = Color | 'random';
 
@@ -18,13 +18,12 @@ export function SetupScreen() {
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white');
   const [elo, setElo] = useState<number>(1500);
   const [inProgress, setInProgress] = useState<InProgressGame | null>(() => loadInProgress());
+  const [savedGames, setSavedGames] = useState<SavedGame[]>(() => loadSavedGames());
 
   const startGame = useGameStore((s) => s.startGame);
   const resumeGame = useGameStore((s) => s.resumeGame);
   const discardInProgress = useGameStore((s) => s.discardInProgress);
   const openReview = useGameStore((s) => s.openReview);
-
-  const savedGames = useMemo(() => loadSavedGames(), []);
 
   const handleStartGame = () => {
     const playerColor: Color =
@@ -48,6 +47,18 @@ export function SetupScreen() {
   const handleDiscard = () => {
     discardInProgress();
     setInProgress(null);
+  };
+
+  const handleDeleteGame = (id: string) => {
+    deleteSavedGame(id);
+    setSavedGames(loadSavedGames());
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('Delete all saved games?')) {
+      clearSavedGames();
+      setSavedGames([]);
+    }
   };
 
   return (
@@ -171,7 +182,17 @@ export function SetupScreen() {
 
         {savedGames.length > 0 && (
           <div className="past-games-card">
-            <h3 className="past-games-title">Completed Games ({savedGames.length})</h3>
+            <div className="past-games-header">
+              <h3 className="past-games-title">Completed Games ({savedGames.length})</h3>
+              <button
+                type="button"
+                className="clear-games-btn"
+                onClick={handleClearAll}
+                title="Clear all saved games"
+              >
+                Clear All
+              </button>
+            </div>
             <div className="past-games-list">
               {savedGames.map((g) => (
                 <div key={g.id} className="past-game-item">
@@ -186,9 +207,20 @@ export function SetupScreen() {
                       </span>
                     </div>
                   </div>
-                  <button className="secondary-btn review-link-btn" onClick={() => openReview(g)}>
-                    Review 🔍
-                  </button>
+                  <div className="past-game-actions">
+                    <button className="secondary-btn review-link-btn" onClick={() => openReview(g)}>
+                      Review 🔍
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-btn delete-game-btn"
+                      onClick={() => handleDeleteGame(g.id)}
+                      title="Delete game"
+                      aria-label="Delete game"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

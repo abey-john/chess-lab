@@ -78,6 +78,18 @@ export function updateSavedGameAnalysis(id: string, analysis: PositionEval[]): v
   }
 }
 
+export function deleteSavedGame(id: string): void {
+  try {
+    const storage = getStorage();
+    if (!storage) return;
+
+    const games = loadSavedGames().filter((g) => g.id !== id);
+    storage.setItem(STORAGE_KEY_GAMES, JSON.stringify(games));
+  } catch (err) {
+    console.error('Failed to delete saved game from localStorage:', err);
+  }
+}
+
 export function clearSavedGames(): void {
   try {
     const storage = getStorage();

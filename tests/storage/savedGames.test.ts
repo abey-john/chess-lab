@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearSavedGames, getSavedGame, loadSavedGames, saveGame, updateSavedGameAnalysis } from '../../src/storage/savedGames';
+import { clearSavedGames, deleteSavedGame, getSavedGame, loadSavedGames, saveGame, updateSavedGameAnalysis } from '../../src/storage/savedGames';
 import type { SavedGame } from '../../src/game/types';
 import { STORAGE_KEY_GAMES } from '../../src/logic/config';
 
@@ -84,6 +84,17 @@ describe('savedGames storage', () => {
     const loaded = loadSavedGames();
     expect(loaded).toHaveLength(50);
     expect(loaded[0].id).toBe('game-54'); // Most recent game first
+  });
+
+  it('deletes a single saved game correctly', () => {
+    saveGame(dummySavedGame);
+    saveGame({ ...dummySavedGame, id: 'game-789' });
+    expect(loadSavedGames()).toHaveLength(2);
+
+    deleteSavedGame('game-456');
+    const remaining = loadSavedGames();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe('game-789');
   });
 
   it('handles corrupt storage gracefully', () => {

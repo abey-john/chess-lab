@@ -31,10 +31,12 @@ describe('winProb logic', () => {
     expect(evalScoreToCp({ kind: 'cp', value: 150 })).toBe(150);
     expect(evalScoreToCp({ kind: 'mate', value: 3 })).toBe(10000);
     expect(evalScoreToCp({ kind: 'mate', value: 1 })).toBe(10000);
+    expect(evalScoreToCp({ kind: 'mate', value: 0 })).toBe(-10000);
     expect(evalScoreToCp({ kind: 'mate', value: -1 })).toBe(-10000);
     expect(evalScoreToCp({ kind: 'mate', value: -5 })).toBe(-10000);
 
     expect(evalScoreToWinProb({ kind: 'mate', value: 1 })).toBeCloseTo(100, 1);
+    expect(evalScoreToWinProb({ kind: 'mate', value: 0 })).toBeCloseTo(0, 1);
     expect(evalScoreToWinProb({ kind: 'mate', value: -1 })).toBeCloseTo(0, 1);
   });
 

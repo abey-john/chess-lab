@@ -831,6 +831,30 @@
   gap: 16px;
 }
 
+.past-games-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-games-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.clear-games-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
 .past-games-title {
   font-size: 16px;
   font-weight: 700;
@@ -886,6 +910,30 @@
   color: var(--text-muted);
 }
 
+.past-game-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-game-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delete-game-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--danger);
+  color: #fff;
+}
+
 .review-link-btn {
   padding: 6px 14px;
   font-size: 12px;
@@ -919,6 +967,20 @@
   gap: 14px;
 }
 
+.review-analyzing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #c7d2fe;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: pulse 1.5s infinite;
+}
+
 .analysis-progress-banner {
   background: rgba(99, 102, 241, 0.1);
   border: 1px solid rgba(99, 102, 241, 0.3);
@@ -950,6 +1012,21 @@
   height: 100%;
   background: linear-gradient(90deg, #6366f1, #a855f7);
   transition: width 0.2s ease;
+}
+
+.progress-bar-fill.indeterminate {
+  background: linear-gradient(90deg, #6366f1, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Summary Card */
@@ -1045,13 +1122,31 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+}
+
+.graph-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .graph-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.graph-active-readout {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 3px 10px;
+  border-radius: 9999px;
 }
 
 .graph-legend {
@@ -1087,7 +1182,19 @@
 
 .eval-graph-svg-wrap {
   width: 100%;
-  height: 180px;
+  height: 240px;
+}
+
+.eval-graph-loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 220px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
 }
 
 .eval-graph-svg {
@@ -1102,13 +1209,27 @@
 }
 
 .grid-line.mid-line {
-  stroke: rgba(255, 255, 255, 0.2);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.5;
+}
+
+.grid-line.faint {
+  stroke: rgba(255, 255, 255, 0.04);
+  stroke-width: 1;
 }
 
 .axis-label {
   fill: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
+}
+
+.axis-label.font-bold {
+  font-weight: 700;
+}
+
+.axis-label.mid {
+  fill: #c7d2fe;
 }
 
 .eval-line {

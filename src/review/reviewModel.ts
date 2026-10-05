@@ -13,6 +13,7 @@ export interface ClassifiedMove {
   classification?: MoveClassification;
   accuracy?: number; // 0 to 100
   whiteWinProb?: number; // White's win% after this move (0 to 100)
+  playerWinProb?: number; // Player's win% after this move (0 to 100)
 }
 
 export interface MoveSwing {
@@ -35,6 +36,7 @@ export interface SideStats {
 export interface ReviewGraphPoint {
   ply: number;
   whiteWinProb: number;
+  playerWinProb: number;
   quality?: MoveQuality;
   by?: 'player' | 'bot';
   color?: Color;
@@ -82,9 +84,12 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
   // Starting position (ply 0): White to move
   const startEval = evalByPly.get(0);
   if (startEval) {
+    const startWhiteWinProb = evalScoreToWhiteWinProb(startEval.score, 'white');
+    const startPlayerWinProb = playerColor === 'white' ? startWhiteWinProb : 100 - startWhiteWinProb;
     evalGraphPoints.push({
       ply: 0,
-      whiteWinProb: evalScoreToWhiteWinProb(startEval.score, 'white'),
+      whiteWinProb: startWhiteWinProb,
+      playerWinProb: startPlayerWinProb,
     });
   }
 
@@ -101,9 +106,11 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     let classification: MoveClassification | undefined;
     let accuracy: number | undefined;
     let whiteWinProb: number | undefined;
+    let playerWinProb: number | undefined;
 
     if (afterEval) {
       whiteWinProb = evalScoreToWhiteWinProb(afterEval.score, nextSideToMove);
+      playerWinProb = playerColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
     }
 
     if (beforeEval && afterEval) {
@@ -131,12 +138,14 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       classification,
       accuracy,
       whiteWinProb,
+      playerWinProb,
     });
 
-    if (whiteWinProb !== undefined) {
+    if (whiteWinProb !== undefined && playerWinProb !== undefined) {
       evalGraphPoints.push({
         ply,
         whiteWinProb,
+        playerWinProb,
         quality: classification?.quality,
         by: tag.by,
         color: moveColor,
@@ -144,6 +153,7 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       });
     }
   }
+
 
   // Calculate side averages
   whiteStats.accuracy = calculateSideAccuracy(whiteAccuracies);

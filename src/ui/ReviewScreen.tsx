@@ -123,21 +123,31 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
         </div>
 
         <div className="review-header-stats">
+          {isAnalyzing && (
+            <div className="review-analyzing-badge">
+              <span className="spinner" /> Analyzing...
+            </div>
+          )}
           <div className="game-over-badge">{game.result}</div>
           <span className="game-over-reason">{game.resultReason}</span>
         </div>
       </header>
 
-      {isAnalyzing && progress && (
+      {isAnalyzing && (
         <div className="analysis-progress-banner">
           <div className="progress-info">
             <span className="spinner" />
-            <span>
-              Analyzing positions: {progress.currentPly} of {progress.totalPlies} plies ({progress.percent}%)
+            <span className="progress-text">
+              {progress
+                ? `Analyzing moves with Stockfish: ${progress.currentPly} of ${progress.totalPlies} plies (${progress.percent}%)`
+                : 'Starting Stockfish engine analysis... Initializing positions'}
             </span>
           </div>
           <div className="progress-bar-track">
-            <div className="progress-bar-fill" style={{ width: `${progress.percent}%` }} />
+            <div
+              className={`progress-bar-fill ${!progress ? 'indeterminate' : ''}`}
+              style={{ width: `${progress ? Math.max(5, progress.percent) : 100}%` }}
+            />
           </div>
         </div>
       )}
@@ -257,7 +267,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
                     <th className="col-num">#</th>
                     <th className="col-move">Move</th>
                     <th className="col-quality">Quality</th>
-                    <th className="col-eval">Win%</th>
+                    <th className="col-eval">Your Win %</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,7 +291,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
                           )}
                         </td>
                         <td className="col-eval">
-                          {m.whiteWinProb !== undefined ? `${m.whiteWinProb.toFixed(0)}%` : '—'}
+                          {m.playerWinProb !== undefined ? `${m.playerWinProb.toFixed(0)}%` : '—'}
                         </td>
                       </tr>
                     );
