@@ -1365,3 +1365,123 @@
   color: var(--text-secondary);
 }
 
+/* Responsive & Mobile Layout */
+@media (max-width: 768px) {
+  .game-screen,
+  .setup-screen,
+  .review-screen {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+
+  .game-header,
+  .review-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .header-left {
+    justify-content: space-between;
+  }
+
+  .header-status-group,
+  .review-header-stats {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .board-wrapper,
+  .review-board-wrapper {
+    width: min(92vw, 480px);
+    height: min(92vw, 480px);
+  }
+
+  .sidebar-section {
+    max-width: 100%;
+    width: 100%;
+    min-width: unset;
+  }
+
+  .review-summary-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .summary-vs {
+    align-self: center;
+    padding: 0;
+  }
+
+  .breakdown-pills {
+    justify-content: flex-start;
+  }
+
+  .eval-graph-container {
+    padding: 12px 14px;
+  }
+
+  .eval-graph-svg-wrap {
+    height: 150px;
+  }
+
+  .game-over-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .game-over-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .past-game-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .past-game-actions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-title {
+    font-size: 20px;
+  }
+
+  .board-wrapper,
+  .review-board-wrapper {
+    width: min(96vw, 360px);
+    height: min(96vw, 360px);
+  }
+
+  .game-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .action-btn {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .history-nav-controls .nav-btn {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .review-header-stats {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+}
+
