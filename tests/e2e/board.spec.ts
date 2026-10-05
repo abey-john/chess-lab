@@ -6,7 +6,7 @@ test('interact with board, play moves, flip orientation, and resign in Firefox',
   await page.goto('http://localhost:5173/chess-lab/');
 
   await expect(page.locator('.logo-title')).toHaveText('chess-lab');
-  await expect(page.locator('.status-text')).toContainText("White's turn");
+  await expect(page.locator('.status-text')).toContainText('Your turn');
 
   const board = page.locator('cg-board');
   await expect(board).toBeVisible();
@@ -35,18 +35,16 @@ test('interact with board, play moves, flip orientation, and resign in Firefox',
   await clickSquare('e2');
   await clickSquare('e4');
 
-  await expect(page.locator('.status-text')).toContainText("Black's turn");
   await expect(page.locator('.move-table tbody tr:first-child .white-move')).toHaveText('e4');
 
-  // 1... e5
-  await clickSquare('e7');
-  await clickSquare('e5');
+  // Wait for bot move
+  await expect(page.locator('.move-table tbody tr:first-child .black-move')).not.toBeEmpty({
+    timeout: 15000,
+  });
+  await expect(page.locator('.status-text')).toContainText('Your turn');
 
-  await expect(page.locator('.status-text')).toContainText("White's turn");
-  await expect(page.locator('.move-table tbody tr:first-child .black-move')).toHaveText('e5');
-
-  // Take screenshot of active game after 1. e4 e5
-  await page.screenshot({ path: 'tests/e2e/e4_e5_played.png' });
+  // Take screenshot of active game after 1. e4 and bot response
+  await page.screenshot({ path: 'tests/e2e/e4_bot_played.png' });
 
   // Test Flip Board
   const flipBtn = page.getByRole('button', { name: /Flip Board/i });
@@ -74,7 +72,7 @@ test('interact with board, play moves, flip orientation, and resign in Firefox',
   await newGameBtn.click();
 
   await expect(banner).not.toBeVisible();
-  await expect(page.locator('.status-text')).toContainText("White's turn");
+  await expect(page.locator('.status-text')).toContainText('Your turn');
   await expect(page.locator('.empty-history')).toHaveText('Game started. Make a move!');
 
   await page.waitForTimeout(300);

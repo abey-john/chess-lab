@@ -14,7 +14,7 @@ export function GameOverBanner() {
     <div className="game-over-banner">
       <div className="game-over-badge">{result}</div>
       <div className="game-over-reason">{resultReason}</div>
-      <button className="primary-btn" onClick={resetGame}>
+      <button className="primary-btn" onClick={() => resetGame()}>
         New Game
       </button>
     </div>
