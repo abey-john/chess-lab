@@ -3,9 +3,10 @@ import { create } from 'zustand';
 import { getSharedEngine } from '../engine/engineService';
 import { DRAW_ACCEPT_MAX_ABS_CP } from '../logic/config';
 import { clearInProgress, loadInProgress, saveInProgress } from '../storage/inProgress';
+import { saveGame } from '../storage/savedGames';
 import { executeBotTurn } from './botTurn';
 import { checkGameOver, getLegalDests, isPromotionMove } from './chessRules';
-import type { Color, GameConfig, MoveTag } from './types';
+import type { Color, GameConfig, MoveTag, SavedGame } from './types';
 
 function createGameId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -46,6 +47,7 @@ export interface GameState {
   viewingPly: number | null;
   hasNewMoveSinceHistoryBrowsed: boolean;
   drawOfferStatus: 'idle' | 'offered' | 'declined' | 'accepted';
+  activeReviewGame: SavedGame | null;
 
   makeMove: (
     from: string,
@@ -61,6 +63,7 @@ export interface GameState {
   resetGame: (customConfig?: Partial<GameConfig>) => void;
   startGame: (customConfig?: Partial<GameConfig>) => void;
   goToSetup: () => void;
+  openReview: (game?: SavedGame) => void;
   resumeGame: () => boolean;
   discardInProgress: () => void;
   setViewingPly: (ply: number | null) => void;
@@ -104,6 +107,7 @@ export const useGameStore = create<GameState>((set, get) => {
     viewingPly: null,
     hasNewMoveSinceHistoryBrowsed: false,
     drawOfferStatus: 'idle',
+    activeReviewGame: null,
 
     makeMove: (from, to, promotion, tagOverride) => {
       const { chess, isGameOver, gameId, config } = get();
@@ -184,6 +188,19 @@ export const useGameStore = create<GameState>((set, get) => {
             executeBotTurn(gameId);
           }
         } else {
+          const finishedGame: SavedGame = {
+            version: 1,
+            id: gameId,
+            mode: config.mode,
+            startedAt: get().startedAt,
+            config,
+            result: overState.result,
+            resultReason: overState.reason,
+            pgn: chess.pgn(),
+            tags: updatedTags,
+          };
+          saveGame(finishedGame);
+          set({ activeReviewGame: finishedGame });
           clearInProgress();
         }
 
@@ -206,24 +223,41 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     resign: () => {
-      const { config, isGameOver } = get();
+      const { config, isGameOver, gameId, chess } = get();
       if (isGameOver) {
         return;
       }
 
       const resigningColor = config.playerColor;
       const winner: Color = resigningColor === 'white' ? 'black' : 'white';
+      const result = winner === 'white' ? '1-0' : '0-1';
+      const resultReason = `${resigningColor === 'white' ? 'White' : 'Black'} resigned — ${winner === 'white' ? 'White' : 'Black'} wins`;
+
+      const finishedGame: SavedGame = {
+        version: 1,
+        id: gameId,
+        mode: config.mode,
+        startedAt: get().startedAt,
+        config,
+        result,
+        resultReason,
+        pgn: chess.pgn(),
+        tags: get().tags,
+      };
+      saveGame(finishedGame);
+
       set({
         isGameOver: true,
-        result: winner === 'white' ? '1-0' : '0-1',
-        resultReason: `${resigningColor === 'white' ? 'White' : 'Black'} resigned — ${winner === 'white' ? 'White' : 'Black'} wins`,
+        result,
+        resultReason,
         dests: new Map(),
+        activeReviewGame: finishedGame,
       });
       clearInProgress();
     },
 
     offerDraw: async () => {
-      const { isGameOver, isBotThinking, fen, gameId } = get();
+      const { isGameOver, isBotThinking, fen, gameId, config, chess } = get();
       if (isGameOver || isBotThinking) {
         return false;
       }
@@ -245,12 +279,26 @@ export const useGameStore = create<GameState>((set, get) => {
         }
 
         if (accepts) {
+          const finishedGame: SavedGame = {
+            version: 1,
+            id: gameId,
+            mode: config.mode,
+            startedAt: get().startedAt,
+            config,
+            result: '1/2-1/2',
+            resultReason: 'Draw agreed',
+            pgn: chess.pgn(),
+            tags: get().tags,
+          };
+          saveGame(finishedGame);
+
           set({
             isGameOver: true,
             result: '1/2-1/2',
             resultReason: 'Draw agreed',
             dests: new Map(),
             drawOfferStatus: 'accepted',
+            activeReviewGame: finishedGame,
           });
           clearInProgress();
           return true;
@@ -301,6 +349,7 @@ export const useGameStore = create<GameState>((set, get) => {
         viewingPly: null,
         hasNewMoveSinceHistoryBrowsed: false,
         drawOfferStatus: 'idle',
+        activeReviewGame: null,
       });
 
       clearInProgress();
@@ -317,6 +366,13 @@ export const useGameStore = create<GameState>((set, get) => {
 
     goToSetup: () => {
       set({ screen: 'setup' });
+    },
+
+    openReview: (game) => {
+      const target = game ?? get().activeReviewGame;
+      if (target) {
+        set({ activeReviewGame: target, screen: 'review' });
+      }
     },
 
     resumeGame: () => {

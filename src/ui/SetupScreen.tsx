@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGameStore } from '../game/gameStore';
 import type { Color, InProgressGame } from '../game/types';
 import { ELO_MAX, ELO_MIN } from '../logic/config';
 import { loadInProgress } from '../storage/inProgress';
+import { loadSavedGames } from '../storage/savedGames';
 
 type ColorChoice = Color | 'random';
 
@@ -21,6 +22,9 @@ export function SetupScreen() {
   const startGame = useGameStore((s) => s.startGame);
   const resumeGame = useGameStore((s) => s.resumeGame);
   const discardInProgress = useGameStore((s) => s.discardInProgress);
+  const openReview = useGameStore((s) => s.openReview);
+
+  const savedGames = useMemo(() => loadSavedGames(), []);
 
   const handleStartGame = () => {
     const playerColor: Color =
@@ -164,6 +168,32 @@ export function SetupScreen() {
             Start Game ⚔
           </button>
         </div>
+
+        {savedGames.length > 0 && (
+          <div className="past-games-card">
+            <h3 className="past-games-title">Completed Games ({savedGames.length})</h3>
+            <div className="past-games-list">
+              {savedGames.map((g) => (
+                <div key={g.id} className="past-game-item">
+                  <div className="past-game-main">
+                    <span className="past-game-result">{g.result}</span>
+                    <div className="past-game-meta">
+                      <span className="past-game-desc">
+                        vs Stockfish ({g.config.elo} Elo) — {g.tags.length} plies
+                      </span>
+                      <span className="past-game-date">
+                        {new Date(g.startedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="secondary-btn review-link-btn" onClick={() => openReview(g)}>
+                    Review 🔍
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

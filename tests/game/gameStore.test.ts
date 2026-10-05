@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../../src/game/gameStore';
 import * as engineModule from '../../src/engine/engineService';
 import type { EngineService } from '../../src/engine/types';
-import { clearInProgress, loadInProgress } from '../../src/storage/inProgress';
+import { loadInProgress } from '../../src/storage/inProgress';
 
 describe('useGameStore', () => {
   let mockStore: Record<string, string> = {};
