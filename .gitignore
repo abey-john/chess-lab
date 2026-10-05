@@ -27,3 +27,9 @@ dist-ssr
 chess-lab-plan.md
 *plan*.md
 docs/
+
+# Test output
+test-results/
+playwright-report/
+tests/e2e/*.png
+
