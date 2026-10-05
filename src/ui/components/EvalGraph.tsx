@@ -67,18 +67,18 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
   const getReadoutText = (pt: ReviewGraphPoint) => {
     const movePrefix = pt.ply === 0 ? 'Start Position' : `Ply ${pt.ply}${pt.san ? ` (${pt.san})` : ''}`;
     if (pt.scoreDisplay === '#' || pt.scoreDisplay.startsWith('+M')) {
-      return `${movePrefix}: ${pt.scoreDisplay} (White has mate)`;
+      return `${movePrefix}: White ${pt.scoreDisplay}`;
     }
     if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
-      return `${movePrefix}: ${pt.scoreDisplay} (Black has mate)`;
+      return `${movePrefix}: Black ${pt.scoreDisplay}`;
     }
     if (pt.score > 0) {
-      return `${movePrefix}: ${pt.scoreDisplay} (White +${pt.score.toFixed(1)})`;
+      return `${movePrefix}: White ${pt.scoreDisplay}`;
     }
     if (pt.score < 0) {
-      return `${movePrefix}: ${pt.scoreDisplay} (Black +${Math.abs(pt.score).toFixed(1)})`;
+      return `${movePrefix}: Black ${pt.scoreDisplay}`;
     }
-    return `${movePrefix}: 0.0 (Equal)`;
+    return `${movePrefix}: Equal 0.0`;
   };
 
   return (
