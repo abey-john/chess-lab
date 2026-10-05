@@ -1,0 +1,180 @@
+import type { Color, MoveQuality, PositionEval, SavedGame } from '../game/types';
+import { calculateMoveAccuracy, calculateSideAccuracy } from '../logic/accuracy';
+import { classifyMove, type MoveClassification } from '../logic/classifyMove';
+import { evalScoreToWhiteWinProb } from '../logic/winProb';
+
+export interface ClassifiedMove {
+  ply: number;
+  san: string;
+  by: 'player' | 'bot';
+  color: Color; // white or black
+  scoreBefore?: PositionEval;
+  scoreAfter?: PositionEval;
+  classification?: MoveClassification;
+  accuracy?: number; // 0 to 100
+  whiteWinProb?: number; // White's win% after this move (0 to 100)
+}
+
+export interface MoveSwing {
+  ply: number;
+  san: string;
+  by: 'player' | 'bot';
+  color: Color;
+  drop: number;
+  quality: MoveQuality;
+}
+
+export interface SideStats {
+  good: number;
+  inaccuracy: number;
+  mistake: number;
+  blunder: number;
+  accuracy: number; // average accuracy (0 to 100)
+}
+
+export interface ReviewGraphPoint {
+  ply: number;
+  whiteWinProb: number;
+  quality?: MoveQuality;
+  by?: 'player' | 'bot';
+  color?: Color;
+  san?: string;
+}
+
+export interface ReviewModel {
+  gameId: string;
+  mode: string;
+  result: SavedGame['result'];
+  resultReason: string;
+  playerColor: Color;
+  botColor: Color;
+  config: SavedGame['config'];
+  classifiedMoves: ClassifiedMove[];
+  topSwings: MoveSwing[];
+  whiteStats: SideStats;
+  blackStats: SideStats;
+  evalGraphPoints: ReviewGraphPoint[];
+}
+
+/**
+ * Builds the complete post-game review model from a SavedGame and its position evals.
+ */
+export function buildReviewModel(savedGame: SavedGame): ReviewModel {
+  const { id, mode, result, resultReason, config, tags, analysis = [] } = savedGame;
+  const playerColor = config.playerColor;
+  const botColor: Color = playerColor === 'white' ? 'black' : 'white';
+
+  // Map analysis by ply for instant lookup
+  const evalByPly = new Map<number, PositionEval>();
+  for (const posEval of analysis) {
+    evalByPly.set(posEval.ply, posEval);
+  }
+
+  const classifiedMoves: ClassifiedMove[] = [];
+  const whiteAccuracies: number[] = [];
+  const blackAccuracies: number[] = [];
+
+  const whiteStats: SideStats = { good: 0, inaccuracy: 0, mistake: 0, blunder: 0, accuracy: 100 };
+  const blackStats: SideStats = { good: 0, inaccuracy: 0, mistake: 0, blunder: 0, accuracy: 100 };
+
+  const evalGraphPoints: ReviewGraphPoint[] = [];
+
+  // Starting position (ply 0): White to move
+  const startEval = evalByPly.get(0);
+  if (startEval) {
+    evalGraphPoints.push({
+      ply: 0,
+      whiteWinProb: evalScoreToWhiteWinProb(startEval.score, 'white'),
+    });
+  }
+
+  for (const tag of tags) {
+    const ply = tag.ply;
+    // Odd plies (1, 3, 5...) are White's moves; even plies (2, 4, 6...) are Black's moves
+    const moveColor: Color = ply % 2 === 1 ? 'white' : 'black';
+    // After ply i, the side to move next is the opposite color
+    const nextSideToMove: Color = moveColor === 'white' ? 'black' : 'white';
+
+    const beforeEval = evalByPly.get(ply - 1);
+    const afterEval = evalByPly.get(ply);
+
+    let classification: MoveClassification | undefined;
+    let accuracy: number | undefined;
+    let whiteWinProb: number | undefined;
+
+    if (afterEval) {
+      whiteWinProb = evalScoreToWhiteWinProb(afterEval.score, nextSideToMove);
+    }
+
+    if (beforeEval && afterEval) {
+      classification = classifyMove(beforeEval.score, afterEval.score);
+      accuracy = calculateMoveAccuracy(classification.drop);
+
+      // Accumulate stats
+      const targetStats = moveColor === 'white' ? whiteStats : blackStats;
+      targetStats[classification.quality]++;
+
+      if (moveColor === 'white') {
+        whiteAccuracies.push(accuracy);
+      } else {
+        blackAccuracies.push(accuracy);
+      }
+    }
+
+    classifiedMoves.push({
+      ply,
+      san: tag.san,
+      by: tag.by,
+      color: moveColor,
+      scoreBefore: beforeEval,
+      scoreAfter: afterEval,
+      classification,
+      accuracy,
+      whiteWinProb,
+    });
+
+    if (whiteWinProb !== undefined) {
+      evalGraphPoints.push({
+        ply,
+        whiteWinProb,
+        quality: classification?.quality,
+        by: tag.by,
+        color: moveColor,
+        san: tag.san,
+      });
+    }
+  }
+
+  // Calculate side averages
+  whiteStats.accuracy = calculateSideAccuracy(whiteAccuracies);
+  blackStats.accuracy = calculateSideAccuracy(blackAccuracies);
+
+  // Top 5 swings across both sides by win% drop (descending)
+  const swings: MoveSwing[] = classifiedMoves
+    .filter((m): m is ClassifiedMove & { classification: MoveClassification } => m.classification !== undefined)
+    .map((m) => ({
+      ply: m.ply,
+      san: m.san,
+      by: m.by,
+      color: m.color,
+      drop: m.classification.drop,
+      quality: m.classification.quality,
+    }))
+    .sort((a, b) => b.drop - a.drop)
+    .slice(0, 5);
+
+  return {
+    gameId: id,
+    mode,
+    result,
+    resultReason,
+    playerColor,
+    botColor,
+    config,
+    classifiedMoves,
+    topSwings: swings,
+    whiteStats,
+    blackStats,
+    evalGraphPoints,
+  };
+}
