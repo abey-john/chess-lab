@@ -6,8 +6,13 @@
   --text-primary: #f0f2f5;
   --text-secondary: #9aa1b2;
   --text-muted: #656c80;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --accent: #2e8b57;
+  --accent-hover: #1e6b3f;
+  --accent-glow: rgba(46, 139, 87, 0.35);
+  --accent-tint: rgba(46, 139, 87, 0.16);
+  --accent-tint-subtle: rgba(46, 139, 87, 0.08);
+  --accent-border: rgba(46, 139, 87, 0.45);
+  --accent-text: #a7f3d0;
   --danger: #ef4444;
   --danger-hover: #dc2626;
   --border: #2e3446;

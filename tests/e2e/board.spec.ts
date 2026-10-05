@@ -5,7 +5,7 @@ test.use({ browserName: 'firefox' });
 test('interact with board, play moves, flip orientation, and resign in Firefox', async ({ page }) => {
   await page.goto('http://localhost:5173/chess-lab/');
 
-  await expect(page.locator('.logo-title')).toHaveText('chess-lab');
+  await expect(page.locator('.logo-title')).toHaveText('Chess Lab');
 
   // Start game from SetupScreen
   await page.getByRole('button', { name: /Start Game/i }).click();

@@ -568,8 +568,8 @@
 }
 
 .resume-card {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(30, 41, 59, 0.8));
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, var(--accent-tint), rgba(30, 41, 59, 0.8));
+  border: 1px solid var(--accent-border);
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;
@@ -585,8 +585,8 @@
 }
 
 .resume-badge {
-  background: rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
+  background: var(--accent-glow);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 10px;
@@ -709,9 +709,9 @@
 }
 
 .mode-btn.active {
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--accent-tint);
   border-color: var(--accent);
-  color: #a5b4fc;
+  color: var(--accent-text);
 }
 
 .color-selector {
@@ -746,7 +746,7 @@
   border-color: var(--accent);
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .color-icon {
@@ -763,13 +763,13 @@
   font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 700;
-  color: #a5b4fc;
+  color: var(--accent-text);
 }
 
 .elo-tier-badge {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
@@ -817,7 +817,7 @@
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 15px var(--accent-glow);
 }
 
 /* Past Games Card */
@@ -889,7 +889,7 @@
   font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 800;
-  color: #a5b4fc;
+  color: var(--accent-text);
   min-width: 50px;
 }
 

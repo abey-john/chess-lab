@@ -1,6 +1,7 @@
 import { useGameStore } from '../game/gameStore';
 import { Board } from './components/Board';
 import { GameOverBanner } from './components/GameOverBanner';
+import { KnightIcon } from './components/KnightIcon';
 import { MoveList } from './components/MoveList';
 
 export function GameScreen() {
@@ -25,8 +26,8 @@ export function GameScreen() {
             ← Setup
           </button>
           <div className="logo-group">
-            <span className="logo-icon">♟</span>
-            <h1 className="logo-title">chess-lab</h1>
+            <KnightIcon size={24} />
+            <h1 className="logo-title">Chess Lab</h1>
           </div>
         </div>
 

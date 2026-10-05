@@ -6,6 +6,7 @@ import { startAnalysis, type AnalysisProgress } from '../review/analyzeGame';
 import { buildReviewModel, type ReviewModel } from '../review/reviewModel';
 import { updateSavedGameAnalysis } from '../storage/savedGames';
 import { EvalGraph } from './components/EvalGraph';
+import { KnightIcon } from './components/KnightIcon';
 import { ModeReviewExtras } from './components/ModeReviewExtras';
 import { ReviewBoard } from './components/ReviewBoard';
 
@@ -117,7 +118,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
             ← Back
           </button>
           <div className="logo-group">
-            <span className="logo-icon">♟</span>
+            <KnightIcon size={24} />
             <h1 className="logo-title">Game Review</h1>
           </div>
         </div>

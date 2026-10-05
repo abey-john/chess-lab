@@ -8,7 +8,7 @@ test('Milestone 5: complete post-game review flow with eval graph, replay, and c
   await page.goto('http://localhost:5173/chess-lab/');
 
   // 1. Start a game from SetupScreen
-  await expect(page.locator('.logo-title')).toHaveText('chess-lab');
+  await expect(page.locator('.logo-title')).toHaveText('Chess Lab');
   const startBtn = page.getByRole('button', { name: /Start Game/i });
   await startBtn.click();
 

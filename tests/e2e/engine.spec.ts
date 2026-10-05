@@ -49,7 +49,7 @@ test('EngineService evaluates, generates candidates, and plays bot turns in Fire
   // 2. Test live interactive game vs Stockfish Bot on the UI
   await page.reload();
 
-  await expect(page.locator('.logo-title')).toHaveText('chess-lab');
+  await expect(page.locator('.logo-title')).toHaveText('Chess Lab');
 
   // Verify Elo number on SetupScreen
   await expect(page.locator('.elo-number')).toHaveText('1500');

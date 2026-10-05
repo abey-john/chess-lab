@@ -8,7 +8,7 @@ test('Milestone 4 full flow: setup screen, play as Black, in-progress resume, dr
   await page.goto('http://localhost:5173/chess-lab/');
 
   // 1. Verify Setup Screen
-  await expect(page.locator('.logo-title')).toHaveText('chess-lab');
+  await expect(page.locator('.logo-title')).toHaveText('Chess Lab');
   await expect(page.locator('.setup-card-title')).toHaveText('New Game Setup');
 
   // Verify color buttons: White, Random, Black

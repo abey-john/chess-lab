@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <style>
     :root {
-      --color: #ea580c;
+      --color: #1b4d3e;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --color: #ff6b35;
+        --color: #2e8b57;
       }
     }
     path {

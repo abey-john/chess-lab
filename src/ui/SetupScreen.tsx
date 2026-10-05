@@ -4,6 +4,7 @@ import type { Color, InProgressGame, SavedGame } from '../game/types';
 import { ELO_MAX, ELO_MIN } from '../logic/config';
 import { clearSavedGames, deleteSavedGame, loadSavedGames } from '../storage/savedGames';
 import { loadInProgress } from '../storage/inProgress';
+import { KnightIcon } from './components/KnightIcon';
 
 type ColorChoice = Color | 'random';
 
@@ -65,11 +66,11 @@ export function SetupScreen() {
     <div className="setup-screen">
       <header className="setup-header">
         <div className="logo-group">
-          <span className="logo-icon">♟</span>
-          <h1 className="logo-title">chess-lab</h1>
+          <KnightIcon size={32} />
+          <h1 className="logo-title">Chess Lab</h1>
         </div>
         <p className="setup-tagline">
-          Analyze, practice, and experiment against Stockfish 16 running completely client-side in WebAssembly.
+          Analyze, practice, and experiment against Stockfish 16.
         </p>
       </header>
 
