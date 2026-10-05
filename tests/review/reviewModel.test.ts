@@ -84,14 +84,22 @@ describe('buildReviewModel', () => {
     // Eval graph points: plies 0, 1, 2, 3, 4
     expect(model.evalGraphPoints).toHaveLength(5);
     expect(model.evalGraphPoints[0].ply).toBe(0);
+    expect(model.evalGraphPoints[0].score).toBeCloseTo(0.2, 1);
+    expect(model.evalGraphPoints[0].scoreDisplay).toBe('+0.2');
+
     expect(model.evalGraphPoints[4].ply).toBe(4);
-    // Move 4 eval was +450 cp for White, so White win prob is ~84.7% (not artificially clamped to 100)
+    // Move 4 eval was +450 cp for White, so White score is +4.5 pawns
+    expect(model.evalGraphPoints[4].score).toBeCloseTo(4.5, 1);
+    expect(model.evalGraphPoints[4].scoreDisplay).toBe('+4.5');
+    expect(model.classifiedMoves[3].scoreDisplay).toBe('+4.5');
+
+    // Win probability is still tracked accurately
     expect(model.evalGraphPoints[4].whiteWinProb).toBeGreaterThan(80);
     expect(model.evalGraphPoints[4].whiteWinProb).toBeLessThan(90);
     expect(model.evalGraphPoints[4].playerWinProb).toBe(model.evalGraphPoints[4].whiteWinProb);
   });
 
-  it('adapts playerWinProb to player perspective when player is Black', () => {
+  it('adapts playerWinProb to player perspective when player is Black and preserves score (+ for White, - for Black)', () => {
     const blackGame: SavedGame = {
       version: 1,
       id: 'test-game-black',
@@ -123,10 +131,12 @@ describe('buildReviewModel', () => {
 
     // Starting position: White is 52.4%, so Black (Player) is ~47.6%
     expect(model.evalGraphPoints[0].playerWinProb).toBeCloseTo(100 - model.evalGraphPoints[0].whiteWinProb, 1);
+    expect(model.evalGraphPoints[0].scoreDisplay).toBe('+0.2');
 
     // Terminal move (resignation): graph preserves the real engine position evaluation (~48.2% for Black)
     expect(model.evalGraphPoints[2].whiteWinProb).toBeCloseTo(51.8, 1);
     expect(model.evalGraphPoints[2].playerWinProb).toBeCloseTo(48.2, 1);
     expect(model.classifiedMoves[1].playerWinProb).toBeCloseTo(48.2, 1);
+    expect(model.evalGraphPoints[2].scoreDisplay).toBe('+0.2');
   });
 });

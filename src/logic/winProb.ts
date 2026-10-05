@@ -46,3 +46,70 @@ export function evalScoreToWhiteWinProb(score: EvalScore, sideToMove: Color): nu
   const sideToMoveWinPct = evalScoreToWinProb(score);
   return sideToMove === 'white' ? sideToMoveWinPct : 100 - sideToMoveWinPct;
 }
+
+/**
+ * Converts an EvalScore to White's perspective centipawns.
+ */
+export function evalScoreToWhiteCp(score: EvalScore, sideToMove: Color): number {
+  const sideToMoveCp = evalScoreToCp(score);
+  return sideToMove === 'white' ? sideToMoveCp : -sideToMoveCp;
+}
+
+/**
+ * Formatted score representation from White's perspective (+ for White, - for Black, 0.0 for even).
+ */
+export interface WhiteScoreInfo {
+  score: number; // Value in pawns clamped to [-10, 10] for graph plotting
+  display: string; // "+1.4", "-0.8", "0.0", "+M2", "-M1", "#", "-#"
+  isMate: boolean;
+}
+
+/**
+ * Formats an EvalScore from White's perspective (+ for White, - for Black, 0 for even).
+ *
+ * @param score EvalScore from the perspective of sideToMove
+ * @param sideToMove The side to move in the evaluated position
+ */
+export function formatWhiteScore(score: EvalScore, sideToMove: Color): WhiteScoreInfo {
+  if (score.kind === 'mate') {
+    const isWhiteWinning =
+      (sideToMove === 'white' && score.value > 0) ||
+      (sideToMove === 'black' && score.value <= 0);
+
+    if (score.value === 0) {
+      return {
+        score: isWhiteWinning ? 10 : -10,
+        display: isWhiteWinning ? '#' : '-#',
+        isMate: true,
+      };
+    }
+
+    const moves = Math.abs(score.value);
+    return {
+      score: isWhiteWinning ? 10 : -10,
+      display: isWhiteWinning ? `+M${moves}` : `-M${moves}`,
+      isMate: true,
+    };
+  }
+
+  // Centipawns:
+  const rawWhiteCp = sideToMove === 'white' ? score.value : -score.value;
+  const pawns = rawWhiteCp / 100;
+  const clampedPawns = Math.max(-10, Math.min(10, pawns));
+
+  let display: string;
+  if (Math.abs(pawns) < 0.05) {
+    display = '0.0';
+  } else if (pawns > 0) {
+    display = `+${pawns.toFixed(1)}`;
+  } else {
+    display = pawns.toFixed(1);
+  }
+
+  return {
+    score: clampedPawns,
+    display,
+    isMate: false,
+  };
+}
+

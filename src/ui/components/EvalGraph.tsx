@@ -11,7 +11,7 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
     return (
       <div className="eval-graph-container">
         <div className="eval-graph-header">
-          <span className="graph-title">Evaluation & Win Probability</span>
+          <span className="graph-title">Evaluation</span>
         </div>
         <div className="eval-graph-loading-placeholder">
           <span className="spinner" />
@@ -23,7 +23,7 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
 
   const width = 800;
   const height = 240;
-  const paddingLeft = 72;
+  const paddingLeft = 76;
   const paddingRight = 32;
   const paddingY = 28;
 
@@ -31,39 +31,64 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - 2 * paddingY;
 
-  const getX = (ply: number) => paddingLeft + (ply / maxPly) * chartWidth;
-  const getY = (winProb: number) =>
-    paddingY + (1 - Math.max(0, Math.min(100, winProb)) / 100) * chartHeight;
+  // Score scale: +10 (top) down to -10 (bottom), with 0 exactly centered
+  const MAX_SCORE = 10;
+  const MIN_SCORE = -10;
 
-  // Build SVG polyline path based on player's win probability
+  const getX = (ply: number) => paddingLeft + (ply / maxPly) * chartWidth;
+  const getY = (score: number) => {
+    const clamped = Math.max(MIN_SCORE, Math.min(MAX_SCORE, score));
+    const fraction = (MAX_SCORE - clamped) / (MAX_SCORE - MIN_SCORE);
+    return paddingY + fraction * chartHeight;
+  };
+
+  const y10 = getY(10);
+  const y5 = getY(5);
+  const y0 = getY(0);
+  const ym5 = getY(-5);
+  const ym10 = getY(-10);
+
+  // Build SVG polyline path based on White's evaluation score
   const pathD = points
     .map(
       (pt, i) =>
-        `${i === 0 ? 'M' : 'L'} ${getX(pt.ply).toFixed(1)} ${getY(pt.playerWinProb).toFixed(1)}`
+        `${i === 0 ? 'M' : 'L'} ${getX(pt.ply).toFixed(1)} ${getY(pt.score).toFixed(1)}`
     )
     .join(' ');
 
-  // Gradient area path closed to bottom
-  const areaD = `${pathD} L ${getX(points[points.length - 1].ply).toFixed(1)} ${height - paddingY} L ${getX(points[0].ply).toFixed(1)} ${height - paddingY} Z`;
+  const xFirst = getX(points[0].ply);
+  const xLast = getX(points[points.length - 1].ply);
 
-  const y100 = getY(100);
-  const y75 = getY(75);
-  const y50 = getY(50);
-  const y25 = getY(25);
-  const y0 = getY(0);
+  // Area path closed against the zero reference line (y0)
+  const zeroAreaD = `${pathD} L ${xLast.toFixed(1)} ${y0.toFixed(1)} L ${xFirst.toFixed(1)} ${y0.toFixed(1)} Z`;
 
   const selectedPoint = points.find((p) => p.ply === currentPly);
+
+  const getReadoutText = (pt: ReviewGraphPoint) => {
+    const movePrefix = pt.ply === 0 ? 'Start Position' : `Ply ${pt.ply}${pt.san ? ` (${pt.san})` : ''}`;
+    if (pt.scoreDisplay === '#' || pt.scoreDisplay.startsWith('+M')) {
+      return `${movePrefix}: ${pt.scoreDisplay} (White has mate)`;
+    }
+    if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
+      return `${movePrefix}: ${pt.scoreDisplay} (Black has mate)`;
+    }
+    if (pt.score > 0) {
+      return `${movePrefix}: ${pt.scoreDisplay} (White +${pt.score.toFixed(1)})`;
+    }
+    if (pt.score < 0) {
+      return `${movePrefix}: ${pt.scoreDisplay} (Black +${Math.abs(pt.score).toFixed(1)})`;
+    }
+    return `${movePrefix}: 0.0 (Equal)`;
+  };
 
   return (
     <div className="eval-graph-container">
       <div className="eval-graph-header">
         <div className="graph-header-left">
-          <span className="graph-title">Evaluation & Win Probability</span>
+          <span className="graph-title">Evaluation</span>
           {selectedPoint && (
             <span className="graph-active-readout">
-              {selectedPoint.ply === 0
-                ? 'Start Position: 50% (Equal)'
-                : `Ply ${selectedPoint.ply}${selectedPoint.san ? ` (${selectedPoint.san})` : ''}: ${selectedPoint.playerWinProb.toFixed(0)}% Your Win Probability${selectedPoint.playerWinProb < 50 ? ` (${(100 - selectedPoint.playerWinProb).toFixed(0)}% Bot)` : ''}`}
+              {getReadoutText(selectedPoint)}
             </span>
           )}
         </div>
@@ -87,42 +112,41 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
           preserveAspectRatio="none"
         >
           <defs>
-            <linearGradient id="evalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(99, 102, 241, 0.45)" />
-              <stop offset="50%" stopColor="rgba(99, 102, 241, 0.1)" />
-              <stop offset="100%" stopColor="rgba(239, 68, 68, 0.2)" />
+            {/* White advantage area clip (above center zero line) */}
+            <clipPath id="aboveZero">
+              <rect x={0} y={0} width={width} height={y0} />
+            </clipPath>
+
+            {/* Black advantage area clip (below center zero line) */}
+            <clipPath id="belowZero">
+              <rect x={0} y={y0} width={width} height={height - y0} />
+            </clipPath>
+
+            <linearGradient id="whiteAdvantageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(241, 245, 249, 0.4)" />
+              <stop offset="100%" stopColor="rgba(241, 245, 249, 0.05)" />
+            </linearGradient>
+
+            <linearGradient id="blackAdvantageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(239, 68, 68, 0.05)" />
+              <stop offset="100%" stopColor="rgba(239, 68, 68, 0.35)" />
             </linearGradient>
           </defs>
 
           {/* Background grid lines */}
           <line
             x1={paddingLeft}
-            y1={y100}
+            y1={y10}
             x2={width - paddingRight}
-            y2={y100}
+            y2={y10}
             className="grid-line"
             strokeDasharray="4"
           />
           <line
             x1={paddingLeft}
-            y1={y75}
+            y1={y5}
             x2={width - paddingRight}
-            y2={y75}
-            className="grid-line faint"
-            strokeDasharray="2 4"
-          />
-          <line
-            x1={paddingLeft}
-            y1={y50}
-            x2={width - paddingRight}
-            y2={y50}
-            className="grid-line mid-line"
-          />
-          <line
-            x1={paddingLeft}
-            y1={y25}
-            x2={width - paddingRight}
-            y2={y25}
+            y2={y5}
             className="grid-line faint"
             strokeDasharray="2 4"
           />
@@ -131,29 +155,45 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
             y1={y0}
             x2={width - paddingRight}
             y2={y0}
+            className="grid-line mid-line"
+          />
+          <line
+            x1={paddingLeft}
+            y1={ym5}
+            x2={width - paddingRight}
+            y2={ym5}
+            className="grid-line faint"
+            strokeDasharray="2 4"
+          />
+          <line
+            x1={paddingLeft}
+            y1={ym10}
+            x2={width - paddingRight}
+            y2={ym10}
             className="grid-line"
             strokeDasharray="4"
           />
 
-          {/* Y Axis percentage labels (Player Perspective) */}
-          <text x={8} y={y100 + 4} className="axis-label font-bold">
-            100% You
+          {/* Y Axis score labels (+ White / - Black / 0 Even) */}
+          <text x={8} y={y10 + 4} className="axis-label font-bold">
+            +10 White
           </text>
-          <text x={8} y={y75 + 4} className="axis-label">
-            75%
+          <text x={8} y={y5 + 4} className="axis-label">
+            +5
           </text>
-          <text x={8} y={y50 + 4} className="axis-label font-bold mid">
-            50%
+          <text x={8} y={y0 + 4} className="axis-label font-bold mid">
+            0.0 Even
           </text>
-          <text x={8} y={y25 + 4} className="axis-label">
-            25%
+          <text x={8} y={ym5 + 4} className="axis-label">
+            -5
           </text>
-          <text x={8} y={y0 + 4} className="axis-label font-bold">
-            0% Bot
+          <text x={8} y={ym10 + 4} className="axis-label font-bold">
+            -10 Black
           </text>
 
-          {/* Area fill */}
-          <path d={areaD} fill="url(#evalGrad)" opacity="0.65" />
+          {/* Area fills relative to center zero line */}
+          <path d={zeroAreaD} fill="url(#whiteAdvantageGrad)" clipPath="url(#aboveZero)" />
+          <path d={zeroAreaD} fill="url(#blackAdvantageGrad)" clipPath="url(#belowZero)" />
 
           {/* Eval line */}
           <path d={pathD} className="eval-line" fill="none" />
@@ -172,7 +212,7 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
           {/* Markers on notable moves & clickable nodes */}
           {points.map((pt) => {
             const cx = getX(pt.ply);
-            const cy = getY(pt.playerWinProb);
+            const cy = getY(pt.score);
             const isSelected = pt.ply === currentPly;
             const hasSevereQuality =
               pt.quality === 'inaccuracy' || pt.quality === 'mistake' || pt.quality === 'blunder';

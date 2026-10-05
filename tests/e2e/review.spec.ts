@@ -70,7 +70,7 @@ test('Milestone 5: complete post-game review flow with eval graph, replay, and c
   await expect(reviewMoveList.locator('.review-move-row')).toHaveCount(2);
 
   // Take screenshot of Review Screen
-  await page.screenshot({ path: 'tests/e2e/review_screen_full.png' });
+  await page.screenshot({ path: 'tests/e2e/review_screen_full.png', fullPage: true });
 
   // 6. Test board navigation and graph interaction
   const navNextBtn = page.getByRole('button', { name: 'Next Move' });

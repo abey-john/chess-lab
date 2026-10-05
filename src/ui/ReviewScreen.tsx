@@ -267,7 +267,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
                     <th className="col-num">#</th>
                     <th className="col-move">Move</th>
                     <th className="col-quality">Quality</th>
-                    <th className="col-eval">Your Win %</th>
+                    <th className="col-eval">Score</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,8 +290,8 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
                             <span className="pill good">—</span>
                           )}
                         </td>
-                        <td className="col-eval">
-                          {m.playerWinProb !== undefined ? `${m.playerWinProb.toFixed(0)}%` : '—'}
+                        <td className="col-eval font-mono font-bold">
+                          {m.scoreDisplay ?? '—'}
                         </td>
                       </tr>
                     );

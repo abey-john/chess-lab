@@ -1,7 +1,7 @@
 import type { Color, MoveQuality, PositionEval, SavedGame } from '../game/types';
 import { calculateMoveAccuracy, calculateSideAccuracy } from '../logic/accuracy';
 import { classifyMove, type MoveClassification } from '../logic/classifyMove';
-import { evalScoreToWhiteWinProb } from '../logic/winProb';
+import { evalScoreToWhiteWinProb, formatWhiteScore } from '../logic/winProb';
 
 export interface ClassifiedMove {
   ply: number;
@@ -14,6 +14,8 @@ export interface ClassifiedMove {
   accuracy?: number; // 0 to 100
   whiteWinProb?: number; // White's win% after this move (0 to 100)
   playerWinProb?: number; // Player's win% after this move (0 to 100)
+  score?: number; // In pawns, clamped [-10, 10] (+ for White, - for Black, 0 for even)
+  scoreDisplay?: string; // Formatted score e.g. "+1.4", "-0.8", "0.0", "+M2", "-M1", "#"
 }
 
 export interface MoveSwing {
@@ -37,6 +39,8 @@ export interface ReviewGraphPoint {
   ply: number;
   whiteWinProb: number;
   playerWinProb: number;
+  score: number; // In pawns, clamped [-10, 10] (+ for White, - for Black, 0 for even)
+  scoreDisplay: string; // Formatted score e.g. "+1.4", "-0.8", "0.0", "+M2", "-M1", "#"
   quality?: MoveQuality;
   by?: 'player' | 'bot';
   color?: Color;
@@ -86,10 +90,13 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
   if (startEval) {
     const startWhiteWinProb = evalScoreToWhiteWinProb(startEval.score, 'white');
     const startPlayerWinProb = playerColor === 'white' ? startWhiteWinProb : 100 - startWhiteWinProb;
+    const startScoreInfo = formatWhiteScore(startEval.score, 'white');
     evalGraphPoints.push({
       ply: 0,
       whiteWinProb: startWhiteWinProb,
       playerWinProb: startPlayerWinProb,
+      score: startScoreInfo.score,
+      scoreDisplay: startScoreInfo.display,
     });
   }
 
@@ -107,10 +114,15 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     let accuracy: number | undefined;
     let whiteWinProb: number | undefined;
     let playerWinProb: number | undefined;
+    let score: number | undefined;
+    let scoreDisplay: string | undefined;
 
     if (afterEval) {
       whiteWinProb = evalScoreToWhiteWinProb(afterEval.score, nextSideToMove);
       playerWinProb = playerColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
+      const scoreInfo = formatWhiteScore(afterEval.score, nextSideToMove);
+      score = scoreInfo.score;
+      scoreDisplay = scoreInfo.display;
     }
 
     if (beforeEval && afterEval) {
@@ -139,13 +151,22 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       accuracy,
       whiteWinProb,
       playerWinProb,
+      score,
+      scoreDisplay,
     });
 
-    if (whiteWinProb !== undefined && playerWinProb !== undefined) {
+    if (
+      whiteWinProb !== undefined &&
+      playerWinProb !== undefined &&
+      score !== undefined &&
+      scoreDisplay !== undefined
+    ) {
       evalGraphPoints.push({
         ply,
         whiteWinProb,
         playerWinProb,
+        score,
+        scoreDisplay,
         quality: classification?.quality,
         by: tag.by,
         color: moveColor,
