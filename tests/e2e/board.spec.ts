@@ -6,6 +6,10 @@ test('interact with board, play moves, flip orientation, and resign in Firefox',
   await page.goto('http://localhost:5173/chess-lab/');
 
   await expect(page.locator('.logo-title')).toHaveText('chess-lab');
+
+  // Start game from SetupScreen
+  await page.getByRole('button', { name: /Start Game/i }).click();
+
   await expect(page.locator('.status-text')).toContainText('Your turn');
 
   const board = page.locator('cg-board');

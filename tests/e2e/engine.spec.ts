@@ -50,10 +50,20 @@ test('EngineService evaluates, generates candidates, and plays bot turns in Fire
   await page.reload();
 
   await expect(page.locator('.logo-title')).toHaveText('chess-lab');
-  await expect(page.locator('.status-text')).toContainText('Your turn');
 
-  // Verify Elo slider and initial value
-  await expect(page.locator('.elo-value')).toHaveText('1500');
+  // Verify Elo number on SetupScreen
+  await expect(page.locator('.elo-number')).toHaveText('1500');
+
+  // Adjust Elo slider to 2000 on SetupScreen
+  const eloSlider = page.locator('.elo-slider');
+  await eloSlider.fill('2000');
+  await expect(page.locator('.elo-number')).toHaveText('2000');
+
+  // Start game with Elo 2000
+  await page.getByRole('button', { name: /Start Game/i }).click();
+
+  await expect(page.locator('.status-text')).toContainText('Your turn');
+  await expect(page.locator('.game-info-card')).toContainText('2000 Elo');
 
   const board = page.locator('cg-board');
   await expect(board).toBeVisible();
@@ -90,9 +100,4 @@ test('EngineService evaluates, generates candidates, and plays bot turns in Fire
 
   // Take screenshot of live game against Stockfish bot
   await page.screenshot({ path: 'tests/e2e/live_bot_game.png' });
-
-  // Adjust Elo slider to 2000
-  const eloSlider = page.locator('.elo-slider');
-  await eloSlider.fill('2000');
-  await expect(page.locator('.elo-value')).toHaveText('2000');
 });

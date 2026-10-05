@@ -1,5 +1,8 @@
 import { Chess } from 'chess.js';
 import { create } from 'zustand';
+import { getSharedEngine } from '../engine/engineService';
+import { DRAW_ACCEPT_MAX_ABS_CP } from '../logic/config';
+import { clearInProgress, loadInProgress, saveInProgress } from '../storage/inProgress';
 import { executeBotTurn } from './botTurn';
 import { checkGameOver, getLegalDests, isPromotionMove } from './chessRules';
 import type { Color, GameConfig, MoveTag } from './types';
@@ -18,8 +21,12 @@ export interface GameMoveRecord {
   fenAfter: string;
 }
 
+export type AppScreen = 'setup' | 'playing' | 'review';
+
 export interface GameState {
+  screen: AppScreen;
   gameId: string;
+  startedAt: string;
   config: GameConfig;
   chess: Chess;
   fen: string;
@@ -36,6 +43,9 @@ export interface GameState {
   tags: MoveTag[];
   pendingPromotion: { from: string; to: string } | null;
   strategyState: unknown;
+  viewingPly: number | null;
+  hasNewMoveSinceHistoryBrowsed: boolean;
+  drawOfferStatus: 'idle' | 'offered' | 'declined' | 'accepted';
 
   makeMove: (
     from: string,
@@ -46,7 +56,14 @@ export interface GameState {
   resolvePromotion: (promotion: 'q' | 'r' | 'b' | 'n') => boolean;
   cancelPromotion: () => void;
   resign: () => void;
+  offerDraw: () => Promise<boolean>;
+  clearDrawOfferStatus: () => void;
   resetGame: (customConfig?: Partial<GameConfig>) => void;
+  startGame: (customConfig?: Partial<GameConfig>) => void;
+  goToSetup: () => void;
+  resumeGame: () => boolean;
+  discardInProgress: () => void;
+  setViewingPly: (ply: number | null) => void;
   toggleOrientation: () => void;
   setOrientation: (color: Color) => void;
   setConfig: (config: Partial<GameConfig>) => void;
@@ -62,9 +79,12 @@ const DEFAULT_CONFIG: GameConfig = {
 export const useGameStore = create<GameState>((set, get) => {
   const initialChess = new Chess();
   const initialGameId = createGameId();
+  const initialStartedAt = new Date().toISOString();
 
   return {
+    screen: 'setup',
     gameId: initialGameId,
+    startedAt: initialStartedAt,
     config: { ...DEFAULT_CONFIG },
     chess: initialChess,
     fen: initialChess.fen(),
@@ -81,6 +101,9 @@ export const useGameStore = create<GameState>((set, get) => {
     tags: [],
     pendingPromotion: null,
     strategyState: {},
+    viewingPly: null,
+    hasNewMoveSinceHistoryBrowsed: false,
+    drawOfferStatus: 'idle',
 
     makeMove: (from, to, promotion, tagOverride) => {
       const { chess, isGameOver, gameId, config } = get();
@@ -127,6 +150,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
         const overState = checkGameOver(chess);
         const nextTurn: Color = chess.turn() === 'w' ? 'white' : 'black';
+        const updatedHistory = [...get().history, moveRecord];
+        const updatedTags = [...get().tags, tag];
 
         set((state) => ({
           fen: fenAfter,
@@ -137,16 +162,29 @@ export const useGameStore = create<GameState>((set, get) => {
           result: overState.result,
           resultReason: overState.reason,
           lastMove: [from, to],
-          history: [...state.history, moveRecord],
-          tags: [...state.tags, tag],
+          history: updatedHistory,
+          tags: updatedTags,
           pendingPromotion: null,
+          hasNewMoveSinceHistoryBrowsed: state.viewingPly !== null,
         }));
 
         if (!overState.isOver) {
+          saveInProgress({
+            version: 1,
+            id: gameId,
+            mode: config.mode,
+            config,
+            startedAt: get().startedAt,
+            moves: updatedHistory.map((h) => `${h.from}${h.to}${h.promotion ?? ''}`),
+            strategyState: get().strategyState,
+          });
+
           const botColor = config.playerColor === 'white' ? 'black' : 'white';
           if (nextTurn === botColor) {
             executeBotTurn(gameId);
           }
+        } else {
+          clearInProgress();
         }
 
         return true;
@@ -168,27 +206,82 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     resign: () => {
-      const { turn, isGameOver } = get();
+      const { config, isGameOver } = get();
       if (isGameOver) {
         return;
       }
 
-      const winner: Color = turn === 'white' ? 'black' : 'white';
+      const resigningColor = config.playerColor;
+      const winner: Color = resigningColor === 'white' ? 'black' : 'white';
       set({
         isGameOver: true,
         result: winner === 'white' ? '1-0' : '0-1',
-        resultReason: `${turn === 'white' ? 'White' : 'Black'} resigned — ${winner === 'white' ? 'White' : 'Black'} wins`,
+        resultReason: `${resigningColor === 'white' ? 'White' : 'Black'} resigned — ${winner === 'white' ? 'White' : 'Black'} wins`,
         dests: new Map(),
       });
+      clearInProgress();
+    },
+
+    offerDraw: async () => {
+      const { isGameOver, isBotThinking, fen, gameId } = get();
+      if (isGameOver || isBotThinking) {
+        return false;
+      }
+
+      set({ drawOfferStatus: 'offered' });
+
+      try {
+        const engine = getSharedEngine();
+        const evalResult = await engine.evaluate(fen, 10);
+        const score = evalResult.score;
+
+        let accepts = false;
+        if (score.kind === 'cp' && Math.abs(score.value) <= DRAW_ACCEPT_MAX_ABS_CP) {
+          accepts = true;
+        }
+
+        if (get().gameId !== gameId) {
+          return false;
+        }
+
+        if (accepts) {
+          set({
+            isGameOver: true,
+            result: '1/2-1/2',
+            resultReason: 'Draw agreed',
+            dests: new Map(),
+            drawOfferStatus: 'accepted',
+          });
+          clearInProgress();
+          return true;
+        } else {
+          set({ drawOfferStatus: 'declined' });
+          setTimeout(() => {
+            if (get().drawOfferStatus === 'declined') {
+              set({ drawOfferStatus: 'idle' });
+            }
+          }, 3500);
+          return false;
+        }
+      } catch {
+        set({ drawOfferStatus: 'declined' });
+        return false;
+      }
+    },
+
+    clearDrawOfferStatus: () => {
+      set({ drawOfferStatus: 'idle' });
     },
 
     resetGame: (customConfig) => {
       const newChess = new Chess();
       const newGameId = createGameId();
+      const newStartedAt = new Date().toISOString();
       const updatedConfig = customConfig ? { ...get().config, ...customConfig } : get().config;
 
       set({
         gameId: newGameId,
+        startedAt: newStartedAt,
         config: updatedConfig,
         chess: newChess,
         fen: newChess.fen(),
@@ -205,11 +298,121 @@ export const useGameStore = create<GameState>((set, get) => {
         tags: [],
         pendingPromotion: null,
         strategyState: {},
+        viewingPly: null,
+        hasNewMoveSinceHistoryBrowsed: false,
+        drawOfferStatus: 'idle',
       });
+
+      clearInProgress();
 
       if (updatedConfig.playerColor === 'black') {
         executeBotTurn(newGameId);
       }
+    },
+
+    startGame: (customConfig) => {
+      get().resetGame(customConfig);
+      set({ screen: 'playing' });
+    },
+
+    goToSetup: () => {
+      set({ screen: 'setup' });
+    },
+
+    resumeGame: () => {
+      const saved = loadInProgress();
+      if (!saved) {
+        return false;
+      }
+
+      const chess = new Chess();
+      const history: GameMoveRecord[] = [];
+      const tags: MoveTag[] = [];
+
+      for (let i = 0; i < saved.moves.length; i++) {
+        const moveStr = saved.moves[i];
+        const from = moveStr.slice(0, 2);
+        const to = moveStr.slice(2, 4);
+        const promotion = moveStr.length > 4 ? (moveStr[4] as 'q' | 'r' | 'b' | 'n') : undefined;
+        const fenBefore = chess.fen();
+        const m = chess.move({ from, to, promotion });
+        if (!m) {
+          console.error('Failed to replay move on resume:', moveStr);
+          return false;
+        }
+        const ply = i + 1;
+        const fenAfter = chess.fen();
+        history.push({
+          ply,
+          san: m.san,
+          from: m.from,
+          to: m.to,
+          promotion: m.promotion,
+          fenBefore,
+          fenAfter,
+        });
+
+        const playerColor = saved.config.playerColor;
+        const isBot = (i % 2 === 0 && playerColor === 'black') || (i % 2 === 1 && playerColor === 'white');
+        tags.push({
+          ply,
+          fenBefore,
+          san: m.san,
+          by: isBot ? 'bot' : 'player',
+        });
+      }
+
+      const overState = checkGameOver(chess);
+      const nextTurn: Color = chess.turn() === 'w' ? 'white' : 'black';
+      const lastMove: [string, string] | null = saved.moves.length > 0
+        ? [saved.moves[saved.moves.length - 1].slice(0, 2), saved.moves[saved.moves.length - 1].slice(2, 4)]
+        : null;
+
+      set({
+        gameId: saved.id,
+        config: saved.config,
+        startedAt: saved.startedAt,
+        chess,
+        fen: chess.fen(),
+        turn: nextTurn,
+        orientation: saved.config.playerColor,
+        dests: overState.isOver ? new Map() : getLegalDests(chess),
+        isCheck: chess.inCheck(),
+        isGameOver: overState.isOver,
+        isBotThinking: false,
+        result: overState.result,
+        resultReason: overState.reason,
+        lastMove,
+        history,
+        tags,
+        pendingPromotion: null,
+        strategyState: saved.strategyState ?? {},
+        screen: 'playing',
+        viewingPly: null,
+        hasNewMoveSinceHistoryBrowsed: false,
+        drawOfferStatus: 'idle',
+      });
+
+      if (!overState.isOver) {
+        const botColor = saved.config.playerColor === 'white' ? 'black' : 'white';
+        if (nextTurn === botColor) {
+          executeBotTurn(saved.id);
+        }
+      }
+
+      return true;
+    },
+
+    discardInProgress: () => {
+      clearInProgress();
+      get().resetGame();
+    },
+
+    setViewingPly: (ply) => {
+      set({
+        viewingPly: ply,
+        hasNewMoveSinceHistoryBrowsed: ply === null ? false : get().hasNewMoveSinceHistoryBrowsed,
+      });
     },
 
     toggleOrientation: () => {

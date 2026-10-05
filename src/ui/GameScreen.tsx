@@ -1,5 +1,4 @@
 import { useGameStore } from '../game/gameStore';
-import { ELO_MAX, ELO_MIN } from '../logic/config';
 import { Board } from './components/Board';
 import { GameOverBanner } from './components/GameOverBanner';
 import { MoveList } from './components/MoveList';
@@ -11,29 +10,34 @@ export function GameScreen() {
   const isBotThinking = useGameStore((s) => s.isBotThinking);
   const orientation = useGameStore((s) => s.orientation);
   const config = useGameStore((s) => s.config);
+  const drawOfferStatus = useGameStore((s) => s.drawOfferStatus);
   const toggleOrientation = useGameStore((s) => s.toggleOrientation);
   const resign = useGameStore((s) => s.resign);
   const resetGame = useGameStore((s) => s.resetGame);
-  const setConfig = useGameStore((s) => s.setConfig);
-
-  const handleEloChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const elo = parseInt(e.target.value, 10);
-    setConfig({ elo });
-  };
-
-  const handleColorChange = (color: 'white' | 'black') => {
-    resetGame({ playerColor: color });
-  };
+  const goToSetup = useGameStore((s) => s.goToSetup);
+  const offerDraw = useGameStore((s) => s.offerDraw);
 
   return (
     <div className="game-screen">
       <header className="game-header">
-        <div className="logo-group">
-          <span className="logo-icon">♟</span>
-          <h1 className="logo-title">chess-lab</h1>
+        <div className="header-left">
+          <button className="setup-nav-btn" onClick={goToSetup} title="Return to Setup Screen">
+            ← Setup
+          </button>
+          <div className="logo-group">
+            <span className="logo-icon">♟</span>
+            <h1 className="logo-title">chess-lab</h1>
+          </div>
         </div>
 
         <div className="header-status-group">
+          {drawOfferStatus === 'declined' && (
+            <div className="draw-toast declined">Draw offer declined by bot</div>
+          )}
+          {drawOfferStatus === 'offered' && (
+            <div className="draw-toast offering">Evaluating draw offer...</div>
+          )}
+
           {isBotThinking && (
             <div className="bot-thinking-badge">
               <span className="spinner" /> Bot is thinking...
@@ -64,51 +68,18 @@ export function GameScreen() {
         </section>
 
         <aside className="sidebar-section">
-          <div className="bot-settings-card">
-            <div className="settings-row">
-              <span className="settings-label">Play as</span>
-              <div className="color-toggle-btns">
-                <button
-                  className={`color-btn ${config.playerColor === 'white' ? 'active' : ''}`}
-                  onClick={() => handleColorChange('white')}
-                >
-                  White
-                </button>
-                <button
-                  className={`color-btn ${config.playerColor === 'black' ? 'active' : ''}`}
-                  onClick={() => handleColorChange('black')}
-                >
-                  Black
-                </button>
-              </div>
+          <div className="game-info-card">
+            <div className="info-row">
+              <span className="info-label">Mode</span>
+              <span className="info-value capitalize">{config.mode}</span>
             </div>
-
-            <div className="settings-row">
-              <div className="elo-header">
-                <span className="settings-label">Bot Elo:</span>
-                <span className="elo-value">{config.elo}</span>
-              </div>
-              <input
-                type="range"
-                className="elo-slider"
-                min={ELO_MIN}
-                max={ELO_MAX}
-                step={20}
-                value={config.elo}
-                onChange={handleEloChange}
-                aria-label="Bot Elo"
-              />
+            <div className="info-row">
+              <span className="info-label">Opponent</span>
+              <span className="info-value">Stockfish ({config.elo} Elo)</span>
             </div>
-
-            <div className="settings-row">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={config.botDelay}
-                  onChange={(e) => setConfig({ botDelay: e.target.checked })}
-                />
-                Human-like thinking delay
-              </label>
+            <div className="info-row">
+              <span className="info-label">You Play</span>
+              <span className="info-value capitalize">{config.playerColor}</span>
             </div>
           </div>
 
@@ -121,6 +92,14 @@ export function GameScreen() {
               title={`Flip to ${orientation === 'white' ? 'Black' : 'White'} view`}
             >
               🔄 Flip Board
+            </button>
+            <button
+              className="action-btn"
+              onClick={() => offerDraw()}
+              disabled={isGameOver || isBotThinking || drawOfferStatus === 'offered'}
+              title="Offer draw to bot"
+            >
+              🤝 Offer Draw
             </button>
             <button
               className="action-btn danger-btn"
