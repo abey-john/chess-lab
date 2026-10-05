@@ -44,7 +44,7 @@ export function evalScoreToWinProb(score: EvalScore): number {
  */
 export function evalScoreToWhiteWinProb(score: EvalScore, sideToMove: Color): number {
   const sideToMoveWinPct = evalScoreToWinProb(score);
-  return sideToMove === 'white' ? sideToMoveWinPct : 100 - sideToMoveWinPct;
+  return sideToMove === 'white' ? 100 - sideToMoveWinPct : sideToMoveWinPct;
 }
 
 /**
@@ -52,7 +52,7 @@ export function evalScoreToWhiteWinProb(score: EvalScore, sideToMove: Color): nu
  */
 export function evalScoreToWhiteCp(score: EvalScore, sideToMove: Color): number {
   const sideToMoveCp = evalScoreToCp(score);
-  return sideToMove === 'white' ? sideToMoveCp : -sideToMoveCp;
+  return sideToMove === 'white' ? -sideToMoveCp : sideToMoveCp;
 }
 
 /**
@@ -73,8 +73,8 @@ export interface WhiteScoreInfo {
 export function formatWhiteScore(score: EvalScore, sideToMove: Color): WhiteScoreInfo {
   if (score.kind === 'mate') {
     const isWhiteWinning =
-      (sideToMove === 'white' && score.value > 0) ||
-      (sideToMove === 'black' && score.value <= 0);
+      (sideToMove === 'white' && score.value <= 0) ||
+      (sideToMove === 'black' && score.value > 0);
 
     if (score.value === 0) {
       return {
@@ -93,9 +93,10 @@ export function formatWhiteScore(score: EvalScore, sideToMove: Color): WhiteScor
   }
 
   // Centipawns:
-  const rawWhiteCp = sideToMove === 'white' ? score.value : -score.value;
+  const rawWhiteCp = sideToMove === 'white' ? -score.value : score.value;
   const pawns = rawWhiteCp / 100;
   const clampedPawns = Math.max(-10, Math.min(10, pawns));
+  const normalizedScore = clampedPawns === 0 ? 0 : clampedPawns;
 
   let display: string;
   if (Math.abs(pawns) < 0.05) {
@@ -107,7 +108,7 @@ export function formatWhiteScore(score: EvalScore, sideToMove: Color): WhiteScor
   }
 
   return {
-    score: clampedPawns,
+    score: normalizedScore,
     display,
     isMate: false,
   };

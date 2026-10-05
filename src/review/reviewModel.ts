@@ -1,6 +1,6 @@
 import type { Color, MoveQuality, PositionEval, SavedGame } from '../game/types';
 import { calculateMoveAccuracy, calculateSideAccuracy } from '../logic/accuracy';
-import { classifyMove, type MoveClassification } from '../logic/classifyMove';
+import { getQualityForDrop, type MoveClassification } from '../logic/classifyMove';
 import { evalScoreToWhiteWinProb, formatWhiteScore } from '../logic/winProb';
 
 export interface ClassifiedMove {
@@ -125,13 +125,25 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       scoreDisplay = scoreInfo.display;
     }
 
-    if (beforeEval && afterEval) {
-      classification = classifyMove(beforeEval.score, afterEval.score);
-      accuracy = calculateMoveAccuracy(classification.drop);
+    if (beforeEval && afterEval && whiteWinProb !== undefined) {
+      const beforeWhiteWinProb = evalScoreToWhiteWinProb(beforeEval.score, moveColor);
+      const movingBeforeWinProb = moveColor === 'white' ? beforeWhiteWinProb : 100 - beforeWhiteWinProb;
+      const movingAfterWinProb = moveColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
+
+      const drop = Math.max(0, movingBeforeWinProb - movingAfterWinProb);
+      const quality = getQualityForDrop(drop);
+
+      classification = {
+        drop,
+        quality,
+        beforeWinProb: movingBeforeWinProb,
+        afterWinProb: movingAfterWinProb,
+      };
+      accuracy = calculateMoveAccuracy(drop);
 
       // Accumulate stats
       const targetStats = moveColor === 'white' ? whiteStats : blackStats;
-      targetStats[classification.quality]++;
+      targetStats[quality]++;
 
       if (moveColor === 'white') {
         whiteAccuracies.push(accuracy);

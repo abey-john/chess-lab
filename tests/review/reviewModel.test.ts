@@ -26,11 +26,11 @@ describe('buildReviewModel', () => {
         { ply: 4, fenBefore: 'rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2', san: 'g6', by: 'bot' },
       ],
       analysis: [
-        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 }, // White to move: White +20cp (~52% win)
-        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 }, // After 1. e4: Black to move, -18cp for Black (White ~52% win) -> Good move
-        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 }, // After 1... e5: White to move, +20cp for White -> Good move
-        { ply: 3, score: { kind: 'cp', value: -15 }, depth: 14 }, // After 2. Qh5: Black to move, -15cp for Black -> Good move
-        { ply: 4, score: { kind: 'cp', value: 450 }, depth: 14 }, // After 2... g6: White to move, +450cp for White -> Bot blundered!
+        { ply: 0, score: { kind: 'cp', value: -20 }, depth: 14 }, // White to move: White +20cp
+        { ply: 1, score: { kind: 'cp', value: 18 }, depth: 14 }, // After 1. e4: Black to move, White +18cp
+        { ply: 2, score: { kind: 'cp', value: -20 }, depth: 14 }, // After 1... e5: White to move, White +20cp
+        { ply: 3, score: { kind: 'cp', value: 15 }, depth: 14 }, // After 2. Qh5: Black to move, White +15cp
+        { ply: 4, score: { kind: 'cp', value: -450 }, depth: 14 }, // After 2... g6: White to move, White +450cp
       ],
     };
 
@@ -119,9 +119,9 @@ describe('buildReviewModel', () => {
         { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'player' },
       ],
       analysis: [
-        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
-        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 },
-        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 0, score: { kind: 'cp', value: -20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: 18 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: -20 }, depth: 14 },
       ],
     };
 
