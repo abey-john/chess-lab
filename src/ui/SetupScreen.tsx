@@ -16,7 +16,6 @@ function getEloTier(elo: number): string {
 export function SetupScreen() {
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white');
   const [elo, setElo] = useState<number>(1500);
-  const [botDelay, setBotDelay] = useState<boolean>(true);
   const [inProgress, setInProgress] = useState<InProgressGame | null>(() => loadInProgress());
 
   const startGame = useGameStore((s) => s.startGame);
@@ -31,7 +30,7 @@ export function SetupScreen() {
       mode: 'standard',
       playerColor,
       elo,
-      botDelay,
+      botDelay: true,
     });
   };
 
@@ -159,17 +158,6 @@ export function SetupScreen() {
               <span>2000</span>
               <span>{ELO_MAX}</span>
             </div>
-          </div>
-
-          <div className="setup-group checkbox-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={botDelay}
-                onChange={(e) => setBotDelay(e.target.checked)}
-              />
-              <span>Human-like thinking delay (400ms – 1500ms)</span>
-            </label>
           </div>
 
           <button className="primary-btn start-game-btn" onClick={handleStartGame}>
