@@ -1,6 +1,7 @@
 import type { EngineService, EvalScore } from '../engine/types';
+import type { Frequency, SeverityChoice, SlipTagData } from '../modes/slip/types';
 
-export type ModeId = 'standard'; // v2 widens this to 'standard' | 'slip'
+export type ModeId = 'standard' | 'slip';
 export type Color = 'white' | 'black';
 export type MoveQuality = 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
@@ -11,16 +12,11 @@ export interface BaseConfig {
   botDelay: boolean;
 }
 
-export type GameConfig = BaseConfig & { mode: 'standard' }; // becomes a union in v2
+export type GameConfig =
+  | (BaseConfig & { mode: 'standard' })
+  | (BaseConfig & { mode: 'slip'; severity: SeverityChoice; frequency: Frequency });
 
-// v2 slip mode metadata (Part C) - declared in v1, never populated in v1
-export interface SlipTagData {
-  requestedSeverity: 'inaccuracy' | 'mistake' | 'blunder';
-  measuredDrop: number; // win% points lost vs best move at slip time
-  measuredSeverity: 'inaccuracy' | 'mistake' | 'blunder' | 'sub-inaccuracy';
-  fallbackUsed: 'none' | 'widened' | 'smaller';
-  rankPlayed: number;
-}
+export type { SlipTagData };
 
 export interface MoveTag {
   ply: number; // 1-based

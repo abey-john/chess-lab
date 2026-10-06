@@ -1,10 +1,12 @@
 import type { BotStrategy, ModeId } from '../game/types';
+import { slipStrategy } from './slip/strategy';
 import { standardStrategy } from './standard/strategy';
 
 export interface ModeDefinition {
   id: ModeId;
   name: string;
-  strategy: BotStrategy;
+  // oxlint-disable-next-line no-explicit-any
+  strategy: BotStrategy<any>;
 }
 
 export const MODES: Record<ModeId, ModeDefinition> = {
@@ -12,6 +14,11 @@ export const MODES: Record<ModeId, ModeDefinition> = {
     id: 'standard',
     name: 'Standard',
     strategy: standardStrategy,
+  },
+  slip: {
+    id: 'slip',
+    name: 'Slip Mode',
+    strategy: slipStrategy,
   },
 };
 
@@ -22,3 +29,5 @@ export function getModeDefinition(modeId: ModeId): ModeDefinition {
   }
   return mode;
 }
+
+export { slipStrategy, standardStrategy };

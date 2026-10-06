@@ -2,6 +2,7 @@ import { Chess } from 'chess.js';
 import { create } from 'zustand';
 import { getSharedEngine } from '../engine/engineService';
 import { DRAW_ACCEPT_MAX_ABS_CP } from '../logic/config';
+import { getModeDefinition } from '../modes';
 import { clearInProgress, loadInProgress, saveInProgress } from '../storage/inProgress';
 import { saveGame } from '../storage/savedGames';
 import { executeBotTurn } from './botTurn';
@@ -325,7 +326,9 @@ export const useGameStore = create<GameState>((set, get) => {
       const newChess = new Chess();
       const newGameId = createGameId();
       const newStartedAt = new Date().toISOString();
-      const updatedConfig = customConfig ? { ...get().config, ...customConfig } : get().config;
+      const updatedConfig = customConfig ? ({ ...get().config, ...customConfig } as GameConfig) : get().config;
+      const modeDef = getModeDefinition(updatedConfig.mode);
+      const initialStrategyState = modeDef.strategy.init(updatedConfig, Math.random);
 
       set({
         gameId: newGameId,
@@ -345,7 +348,7 @@ export const useGameStore = create<GameState>((set, get) => {
         history: [],
         tags: [],
         pendingPromotion: null,
-        strategyState: {},
+        strategyState: initialStrategyState,
         viewingPly: null,
         hasNewMoveSinceHistoryBrowsed: false,
         drawOfferStatus: 'idle',
@@ -424,6 +427,9 @@ export const useGameStore = create<GameState>((set, get) => {
         ? [saved.moves[saved.moves.length - 1].slice(0, 2), saved.moves[saved.moves.length - 1].slice(2, 4)]
         : null;
 
+      const modeDef = getModeDefinition(saved.config.mode);
+      const restoredStrategyState = saved.strategyState ?? modeDef.strategy.init(saved.config, Math.random);
+
       set({
         gameId: saved.id,
         config: saved.config,
@@ -442,7 +448,7 @@ export const useGameStore = create<GameState>((set, get) => {
         history,
         tags,
         pendingPromotion: null,
-        strategyState: saved.strategyState ?? {},
+        strategyState: restoredStrategyState,
         screen: 'playing',
         viewingPly: null,
         hasNewMoveSinceHistoryBrowsed: false,
