@@ -72,17 +72,32 @@ export function startAnalysis(
 
       const { ply, fen } = positions[i];
 
-      // Use cached evaluation if already present
-      const cached = existingAnalysisMap.get(ply);
-      if (cached) {
-        results.push(cached);
-      } else {
-        const evalResult = await engine.evaluate(fen, depth);
+      const posChess = new Chess(fen);
+      if (posChess.isCheckmate()) {
         results.push({
           ply,
-          score: evalResult.score,
-          depth: evalResult.depth,
+          score: { kind: 'mate', value: 0 },
+          depth: 0,
         });
+      } else if (posChess.isDraw()) {
+        results.push({
+          ply,
+          score: { kind: 'cp', value: 0 },
+          depth: 0,
+        });
+      } else {
+        // Use cached evaluation if already present and valid
+        const cached = existingAnalysisMap.get(ply);
+        if (cached) {
+          results.push(cached);
+        } else {
+          const evalResult = await engine.evaluate(fen, depth);
+          results.push({
+            ply,
+            score: evalResult.score,
+            depth: evalResult.depth,
+          });
+        }
       }
 
       const currentPly = i + 1;

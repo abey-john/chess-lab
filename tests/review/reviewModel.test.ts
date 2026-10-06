@@ -215,4 +215,52 @@ describe('buildReviewModel', () => {
     // Eval graph has the slip marker
     expect(model.evalGraphPoints.find((p) => p.ply === 8)?.slip).toBeDefined();
   });
+
+  it('correctly classifies terminal checkmate move (#) with 100% accuracy and proper winner score', () => {
+    const mateGame: SavedGame = {
+      version: 1,
+      id: 'mate-game',
+      mode: 'standard',
+      startedAt: '2026-10-05T12:00:00Z',
+      config: {
+        mode: 'standard',
+        playerColor: 'white',
+        elo: 1500,
+        botDelay: false,
+      },
+      result: '0-1',
+      resultReason: 'Checkmate — Black wins',
+      pgn: '1. f3 e5 2. g4 Qh4#',
+      tags: [
+        { ply: 1, fenBefore: 'start', san: 'f3', by: 'player' },
+        { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'bot' },
+        { ply: 3, fenBefore: 'fen2', san: 'g4', by: 'player' },
+        { ply: 4, fenBefore: 'fen3', san: 'Qh4#', by: 'bot' },
+      ],
+      analysis: [
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: 15 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 3, score: { kind: 'mate', value: 1 }, depth: 14 }, // Black to move, mate in 1
+        { ply: 4, score: { kind: 'mate', value: 0 }, depth: 14 }, // Terminal checkmate
+      ],
+    };
+
+    const model = buildReviewModel(mateGame);
+    const mateMove = model.classifiedMoves[3];
+    expect(mateMove.san).toBe('Qh4#');
+    expect(mateMove.color).toBe('black');
+    expect(mateMove.score).toBe(-10);
+    expect(mateMove.scoreDisplay).toBe('-#');
+    expect(mateMove.whiteWinProb).toBe(0);
+    expect(mateMove.playerWinProb).toBe(0);
+    expect(mateMove.classification?.quality).toBe('good');
+    expect(mateMove.classification?.drop).toBe(0);
+    expect(mateMove.accuracy).toBe(100);
+
+    const lastGraphPoint = model.evalGraphPoints[model.evalGraphPoints.length - 1];
+    expect(lastGraphPoint.ply).toBe(4);
+    expect(lastGraphPoint.score).toBe(-10);
+    expect(lastGraphPoint.scoreDisplay).toBe('-#');
+  });
 });

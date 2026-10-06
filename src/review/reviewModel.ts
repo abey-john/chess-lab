@@ -147,37 +147,63 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     let score: number | undefined;
     let scoreDisplay: string | undefined;
 
-    if (afterEval) {
-      whiteWinProb = evalScoreToWhiteWinProb(afterEval.score, nextSideToMove);
+    const isCheckmateMove = tag.san.includes('#');
+
+    if (isCheckmateMove) {
+      whiteWinProb = moveColor === 'white' ? 100 : 0;
       playerWinProb = playerColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
-      const scoreInfo = formatWhiteScore(afterEval.score, nextSideToMove);
-      score = scoreInfo.score;
-      scoreDisplay = scoreInfo.display;
-    }
+      score = moveColor === 'white' ? 10 : -10;
+      scoreDisplay = moveColor === 'white' ? '#' : '-#';
 
-    if (beforeEval && afterEval && whiteWinProb !== undefined) {
-      const movingBeforeWinProb = evalScoreToWinProb(beforeEval.score);
-      const movingAfterWinProb = 100 - evalScoreToWinProb(afterEval.score);
-
-      const drop = Math.max(0, movingBeforeWinProb - movingAfterWinProb);
-      const quality = getQualityForDrop(drop);
-
+      const movingBeforeWinProb = beforeEval ? evalScoreToWinProb(beforeEval.score) : 100;
       classification = {
-        drop,
-        quality,
+        drop: 0,
+        quality: 'good',
         beforeWinProb: movingBeforeWinProb,
-        afterWinProb: movingAfterWinProb,
+        afterWinProb: 100,
       };
-      accuracy = calculateMoveAccuracy(drop);
+      accuracy = 100;
 
-      // Accumulate stats
       const targetStats = moveColor === 'white' ? whiteStats : blackStats;
-      targetStats[quality]++;
-
+      targetStats.good++;
       if (moveColor === 'white') {
-        whiteAccuracies.push(accuracy);
+        whiteAccuracies.push(100);
       } else {
-        blackAccuracies.push(accuracy);
+        blackAccuracies.push(100);
+      }
+    } else {
+      if (afterEval) {
+        whiteWinProb = evalScoreToWhiteWinProb(afterEval.score, nextSideToMove);
+        playerWinProb = playerColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
+        const scoreInfo = formatWhiteScore(afterEval.score, nextSideToMove);
+        score = scoreInfo.score;
+        scoreDisplay = scoreInfo.display;
+      }
+
+      if (beforeEval && afterEval && whiteWinProb !== undefined) {
+        const movingBeforeWinProb = evalScoreToWinProb(beforeEval.score);
+        const movingAfterWinProb = 100 - evalScoreToWinProb(afterEval.score);
+
+        const drop = Math.max(0, movingBeforeWinProb - movingAfterWinProb);
+        const quality = getQualityForDrop(drop);
+
+        classification = {
+          drop,
+          quality,
+          beforeWinProb: movingBeforeWinProb,
+          afterWinProb: movingAfterWinProb,
+        };
+        accuracy = calculateMoveAccuracy(drop);
+
+        // Accumulate stats
+        const targetStats = moveColor === 'white' ? whiteStats : blackStats;
+        targetStats[quality]++;
+
+        if (moveColor === 'white') {
+          whiteAccuracies.push(accuracy);
+        } else {
+          blackAccuracies.push(accuracy);
+        }
       }
     }
 
