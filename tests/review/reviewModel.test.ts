@@ -263,4 +263,60 @@ describe('buildReviewModel', () => {
     expect(lastGraphPoint.score).toBe(-10);
     expect(lastGraphPoint.scoreDisplay).toBe('-#');
   });
+
+  it('correctly handles mate sequence where White forces mate against Black', () => {
+    // Game where White has forced mate in 2, then mates
+    // Ply 0: Start
+    // Ply 1: White 1. e4
+    // Ply 2: Black 1... f5 (blunder)
+    // Ply 3: White 2. exf5
+    // Ply 4: Black 2... g5 (blunder: White has mate in 1 with Qh5#)
+    // Ply 5: White 3. Qh5#
+    const whiteMateGame: SavedGame = {
+      version: 1,
+      id: 'white-mate-game',
+      mode: 'standard',
+      startedAt: '2026-10-05T12:00:00Z',
+      config: {
+        mode: 'standard',
+        playerColor: 'white',
+        elo: 1500,
+        botDelay: false,
+      },
+      result: '1-0',
+      resultReason: 'Checkmate — White wins',
+      pgn: '1. e4 f5 2. exf5 g5 3. Qh5#',
+      tags: [
+        { ply: 1, fenBefore: 'start', san: 'e4', by: 'player' },
+        { ply: 2, fenBefore: 'fen1', san: 'f5', by: 'bot' },
+        { ply: 3, fenBefore: 'fen2', san: 'exf5', by: 'player' },
+        { ply: 4, fenBefore: 'fen3', san: 'g5', by: 'bot' },
+        { ply: 5, fenBefore: 'fen4', san: 'Qh5#', by: 'player' },
+      ],
+      analysis: [
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 150 }, depth: 14 },
+        { ply: 3, score: { kind: 'cp', value: -150 }, depth: 14 },
+        // After 2... g5 (ply 4): White to move. White has mate in 1 (Qh5#).
+        // Side to move is White. Stockfish returns mate +1!
+        { ply: 4, score: { kind: 'mate', value: 1 }, depth: 14 },
+        // After 3. Qh5# (ply 5): Checkmate.
+        { ply: 5, score: { kind: 'mate', value: 0 }, depth: 14 },
+      ],
+    };
+
+    const model = buildReviewModel(whiteMateGame);
+    // At ply 4 (Black played g5), White has mate in 1:
+    const g5Move = model.classifiedMoves[3];
+    console.log('PLY 4 (g5) scoreDisplay:', g5Move.scoreDisplay);
+    console.log('PLY 4 (g5) score:', g5Move.score);
+    expect(g5Move.scoreDisplay).toBe('+M1');
+
+    // At ply 5 (White played Qh5#):
+    const qh5Move = model.classifiedMoves[4];
+    console.log('PLY 5 (Qh5#) scoreDisplay:', qh5Move.scoreDisplay);
+    console.log('PLY 5 (Qh5#) score:', qh5Move.score);
+    expect(qh5Move.scoreDisplay).toBe('#');
+  });
 });

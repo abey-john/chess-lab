@@ -75,7 +75,7 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
       return `${movePrefix}: White ${mateText}${slipExtra}`;
     }
     if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
-      const mateText = pt.scoreDisplay === '-#' ? '#' : pt.scoreDisplay.slice(2);
+      const mateText = pt.scoreDisplay === '-#' ? '#' : pt.scoreDisplay.slice(1);
       return `${movePrefix}: Black ${mateText}${slipExtra}`;
     }
     if (pt.score > 0) {
