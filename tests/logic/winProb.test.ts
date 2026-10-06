@@ -43,23 +43,23 @@ describe('winProb logic', () => {
   });
 
   it('converts to White win percentage correctly based on side to move', () => {
-    // When Black is to move with +100 cp for the side to move (White advantage)
-    expect(evalScoreToWhiteWinProb({ kind: 'cp', value: 100 }, 'black')).toBeCloseTo(59.1, 1);
+    // When White is to move with +100 cp for the side to move (White advantage)
+    expect(evalScoreToWhiteWinProb({ kind: 'cp', value: 100 }, 'white')).toBeCloseTo(59.1, 1);
 
-    // When White is to move with +100 cp for the side to move
-    expect(evalScoreToWhiteWinProb({ kind: 'cp', value: 100 }, 'white')).toBeCloseTo(40.9, 1);
+    // When Black is to move with +100 cp for the side to move (Black advantage -> White is at 40.9%)
+    expect(evalScoreToWhiteWinProb({ kind: 'cp', value: 100 }, 'black')).toBeCloseTo(40.9, 1);
 
-    // Mate in 1 for White
-    expect(evalScoreToWhiteWinProb({ kind: 'mate', value: 1 }, 'black')).toBeCloseTo(100, 1);
+    // Mate in 1 for White (White to move)
+    expect(evalScoreToWhiteWinProb({ kind: 'mate', value: 1 }, 'white')).toBeCloseTo(100, 1);
 
-    // Mate in 1 for Black
-    expect(evalScoreToWhiteWinProb({ kind: 'mate', value: 1 }, 'white')).toBeCloseTo(0, 1);
+    // Mate in 1 for Black (Black to move)
+    expect(evalScoreToWhiteWinProb({ kind: 'mate', value: 1 }, 'black')).toBeCloseTo(0, 1);
   });
 
   it('formats scores from White perspective with + for White, - for Black, and 0.0 for even', () => {
     // evalScoreToWhiteCp
-    expect(evalScoreToWhiteCp({ kind: 'cp', value: 150 }, 'black')).toBe(150);
-    expect(evalScoreToWhiteCp({ kind: 'cp', value: 150 }, 'white')).toBe(-150);
+    expect(evalScoreToWhiteCp({ kind: 'cp', value: 150 }, 'white')).toBe(150);
+    expect(evalScoreToWhiteCp({ kind: 'cp', value: 150 }, 'black')).toBe(-150);
 
     // Even position
     expect(formatWhiteScore({ kind: 'cp', value: 0 }, 'white')).toEqual({
@@ -68,50 +68,50 @@ describe('winProb logic', () => {
       isMate: false,
     });
 
-    // White advantage (+1.5 pawns)
-    expect(formatWhiteScore({ kind: 'cp', value: 150 }, 'black')).toEqual({
+    // White advantage (+1.5 pawns when White is to move with +150 cp)
+    expect(formatWhiteScore({ kind: 'cp', value: 150 }, 'white')).toEqual({
       score: 1.5,
       display: '+1.5',
       isMate: false,
     });
 
-    // Black advantage (+1.5 pawns for Black -> -1.5 for White)
-    expect(formatWhiteScore({ kind: 'cp', value: 150 }, 'white')).toEqual({
+    // Black advantage (+1.5 pawns for Black when Black is to move with +150 cp -> -1.5 for White)
+    expect(formatWhiteScore({ kind: 'cp', value: 150 }, 'black')).toEqual({
       score: -1.5,
       display: '-1.5',
       isMate: false,
     });
 
-    // White delivering mate in 2
-    expect(formatWhiteScore({ kind: 'mate', value: 2 }, 'black')).toEqual({
+    // White delivering mate in 2 (White to move, mate 2)
+    expect(formatWhiteScore({ kind: 'mate', value: 2 }, 'white')).toEqual({
       score: 10,
       display: '+M2',
       isMate: true,
     });
 
-    // Black delivering mate in 3 (sideToMove is white, value 3)
-    expect(formatWhiteScore({ kind: 'mate', value: 3 }, 'white')).toEqual({
+    // Black delivering mate in 3 (Black to move, mate 3)
+    expect(formatWhiteScore({ kind: 'mate', value: 3 }, 'black')).toEqual({
       score: -10,
       display: '-M3',
       isMate: true,
     });
 
-    // White delivered checkmate on board (White won, Black is mated: sideToMove white)
-    expect(formatWhiteScore({ kind: 'mate', value: 0 }, 'white')).toEqual({
+    // White delivered checkmate on board (Black has no moves and is mated: sideToMove black, value 0)
+    expect(formatWhiteScore({ kind: 'mate', value: 0 }, 'black')).toEqual({
       score: 10,
       display: '#',
       isMate: true,
     });
 
-    // Black delivered checkmate on board (Black won, White is mated: sideToMove black)
-    expect(formatWhiteScore({ kind: 'mate', value: 0 }, 'black')).toEqual({
+    // Black delivered checkmate on board (White has no moves and is mated: sideToMove white, value 0)
+    expect(formatWhiteScore({ kind: 'mate', value: 0 }, 'white')).toEqual({
       score: -10,
       display: '-#',
       isMate: true,
     });
 
     // Score clamping beyond ±10 pawns
-    expect(formatWhiteScore({ kind: 'cp', value: 1500 }, 'black').score).toBe(10);
-    expect(formatWhiteScore({ kind: 'cp', value: -1500 }, 'black').score).toBe(-10);
+    expect(formatWhiteScore({ kind: 'cp', value: 1500 }, 'white').score).toBe(10);
+    expect(formatWhiteScore({ kind: 'cp', value: -1500 }, 'white').score).toBe(-10);
   });
 });

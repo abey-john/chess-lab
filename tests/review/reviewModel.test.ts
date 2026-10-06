@@ -26,11 +26,11 @@ describe('buildReviewModel', () => {
         { ply: 4, fenBefore: 'rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2', san: 'g6', by: 'bot' },
       ],
       analysis: [
-        { ply: 0, score: { kind: 'cp', value: -20 }, depth: 14 }, // White to move: White +20cp
-        { ply: 1, score: { kind: 'cp', value: 18 }, depth: 14 }, // After 1. e4: Black to move, White +18cp
-        { ply: 2, score: { kind: 'cp', value: -20 }, depth: 14 }, // After 1... e5: White to move, White +20cp
-        { ply: 3, score: { kind: 'cp', value: 15 }, depth: 14 }, // After 2. Qh5: Black to move, White +15cp
-        { ply: 4, score: { kind: 'cp', value: -450 }, depth: 14 }, // After 2... g6: White to move, White +450cp
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 }, // White to move: White +20cp
+        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 }, // After 1. e4: Black to move, White +18cp
+        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 }, // After 1... e5: White to move, White +20cp
+        { ply: 3, score: { kind: 'cp', value: -15 }, depth: 14 }, // After 2. Qh5: Black to move, White +15cp
+        { ply: 4, score: { kind: 'cp', value: 450 }, depth: 14 }, // After 2... g6: White to move, White +450cp
       ],
     };
 
@@ -119,9 +119,9 @@ describe('buildReviewModel', () => {
         { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'player' },
       ],
       analysis: [
-        { ply: 0, score: { kind: 'cp', value: -20 }, depth: 14 },
-        { ply: 1, score: { kind: 'cp', value: 18 }, depth: 14 },
-        { ply: 2, score: { kind: 'cp', value: -20 }, depth: 14 },
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 },
       ],
     };
 
@@ -189,8 +189,8 @@ describe('buildReviewModel', () => {
         { ply: 5, score: { kind: 'cp', value: 0 }, depth: 14 },
         { ply: 6, score: { kind: 'cp', value: 0 }, depth: 14 },
         { ply: 7, score: { kind: 'cp', value: 0 }, depth: 14 }, // u0: equal (White win prob = 50%)
-        { ply: 8, score: { kind: 'cp', value: -300 }, depth: 14 }, // Black plays g5: White to move, White +300cp (White win prob ~78%, uBest = 78%)
-        { ply: 9, score: { kind: 'cp', value: 300 }, depth: 14 }, // White plays Nxg5: Black to move, White +300cp (uReply = 78%) -> capitalized!
+        { ply: 8, score: { kind: 'cp', value: 300 }, depth: 14 }, // Black plays g5: White to move, White +300cp (White win prob ~78%, uBest = 78%)
+        { ply: 9, score: { kind: 'cp', value: -300 }, depth: 14 }, // White plays Nxg5: Black to move, White +300cp (uReply = 78%) -> capitalized!
       ],
     };
 

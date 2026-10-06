@@ -1,7 +1,7 @@
 import type { Color, MoveQuality, PositionEval, SavedGame } from '../game/types';
 import { calculateMoveAccuracy, calculateSideAccuracy } from '../logic/accuracy';
 import { getQualityForDrop, type MoveClassification } from '../logic/classifyMove';
-import { evalScoreToWhiteWinProb, formatWhiteScore } from '../logic/winProb';
+import { evalScoreToWhiteWinProb, evalScoreToWinProb, formatWhiteScore } from '../logic/winProb';
 import { classifyReply } from '../modes/slip/classifyReply';
 import type { ReplyVerdict, SlipTagData } from '../modes/slip/types';
 
@@ -156,9 +156,8 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     }
 
     if (beforeEval && afterEval && whiteWinProb !== undefined) {
-      const beforeWhiteWinProb = evalScoreToWhiteWinProb(beforeEval.score, moveColor);
-      const movingBeforeWinProb = moveColor === 'white' ? beforeWhiteWinProb : 100 - beforeWhiteWinProb;
-      const movingAfterWinProb = moveColor === 'white' ? whiteWinProb : 100 - whiteWinProb;
+      const movingBeforeWinProb = evalScoreToWinProb(beforeEval.score);
+      const movingAfterWinProb = 100 - evalScoreToWinProb(afterEval.score);
 
       const drop = Math.max(0, movingBeforeWinProb - movingAfterWinProb);
       const quality = getQualityForDrop(drop);
@@ -263,20 +262,22 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
         const evalAfterSlip = evalByPly.get(ply);
 
         if (evalBefore) {
-          const whiteWinBefore = evalScoreToWhiteWinProb(evalBefore.score, moveColor);
-          u0 = playerColor === 'white' ? whiteWinBefore : 100 - whiteWinBefore;
+          // At ply - 1, bot was to move. Player's win% before bot's slip:
+          u0 = 100 - evalScoreToWinProb(evalBefore.score);
         }
 
         if (evalAfterSlip) {
-          const whiteWinAfter = evalScoreToWhiteWinProb(evalAfterSlip.score, playerColor);
-          uBest = playerColor === 'white' ? whiteWinAfter : 100 - whiteWinAfter;
+          // At ply, bot made the slip. Player is now to move.
+          // Player's theoretical win% with optimal continuation:
+          uBest = evalScoreToWinProb(evalAfterSlip.score);
         }
 
         if (replyTag) {
           const evalAfterReply = evalByPly.get(replyTag.ply);
           if (evalAfterReply) {
-            const whiteWinReply = evalScoreToWhiteWinProb(evalAfterReply.score, botColor);
-            uReply = playerColor === 'white' ? whiteWinReply : 100 - whiteWinReply;
+            // At reply ply, player replied. Bot is to move.
+            // Player's win% achieved after their reply:
+            uReply = 100 - evalScoreToWinProb(evalAfterReply.score);
           }
         }
 

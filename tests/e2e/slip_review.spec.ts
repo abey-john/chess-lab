@@ -57,8 +57,8 @@ test('Milestone 2.4: Slip Mode post-game review screen and ModeReviewExtras brea
       { ply: 5, score: { kind: 'cp', value: 0 }, depth: 14 },
       { ply: 6, score: { kind: 'cp', value: 0 }, depth: 14 },
       { ply: 7, score: { kind: 'cp', value: 0 }, depth: 14 },
-      { ply: 8, score: { kind: 'cp', value: -320 }, depth: 14 }, // White +3.20 (ply 8)
-      { ply: 9, score: { kind: 'cp', value: 320 }, depth: 14 },
+      { ply: 8, score: { kind: 'cp', value: 320 }, depth: 14 }, // White +3.20 (ply 8)
+      { ply: 9, score: { kind: 'cp', value: -320 }, depth: 14 },
     ],
   };
 
