@@ -71,16 +71,19 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
     const slipExtra = pt.slip ? ` · Bot Slip (${pt.slip.requestedSeverity})` : '';
 
     if (pt.scoreDisplay === '#' || pt.scoreDisplay.startsWith('+M')) {
-      return `${movePrefix}: White ${pt.scoreDisplay}${slipExtra}`;
+      const mateText = pt.scoreDisplay === '#' ? '#' : pt.scoreDisplay.slice(1);
+      return `${movePrefix}: White ${mateText}${slipExtra}`;
     }
     if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
-      return `${movePrefix}: Black ${pt.scoreDisplay}${slipExtra}`;
+      const mateText = pt.scoreDisplay === '-#' ? '#' : pt.scoreDisplay.slice(2);
+      return `${movePrefix}: Black ${mateText}${slipExtra}`;
     }
     if (pt.score > 0) {
       return `${movePrefix}: White ${pt.scoreDisplay}${slipExtra}`;
     }
     if (pt.score < 0) {
-      return `${movePrefix}: Black ${pt.scoreDisplay}${slipExtra}`;
+      const positiveVal = Math.abs(pt.score).toFixed(1);
+      return `${movePrefix}: Black +${positiveVal}${slipExtra}`;
     }
     return `${movePrefix}: Equal 0.0${slipExtra}`;
   };
