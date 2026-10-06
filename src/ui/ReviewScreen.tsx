@@ -124,6 +124,9 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
         </div>
 
         <div className="review-header-stats">
+          <span className="review-mode-badge">
+            {game.mode === 'slip' ? 'Slip Mode' : 'Standard'}
+          </span>
           {isAnalyzing && (
             <div className="review-analyzing-badge">
               <span className="spinner" /> Analyzing...
@@ -305,7 +308,12 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
       </main>
 
       {/* ModeReviewExtras extension slot (Section B7) */}
-      <ModeReviewExtras mode={game.mode} />
+      <ModeReviewExtras
+        mode={game.mode}
+        slipSummary={reviewModel.slipSummary}
+        onSelectPly={setSelectedPly}
+        selectedPly={selectedPly}
+      />
     </div>
   );
 }

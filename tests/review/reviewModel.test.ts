@@ -139,4 +139,80 @@ describe('buildReviewModel', () => {
     expect(model.classifiedMoves[1].playerWinProb).toBeCloseTo(48.2, 1);
     expect(model.evalGraphPoints[2].scoreDisplay).toBe('+0.2');
   });
+
+  it('builds slipSummary with classified replies and verdicts for slip mode games', () => {
+    const slipGame: SavedGame = {
+      version: 1,
+      id: 'slip-game-1',
+      mode: 'slip',
+      startedAt: '2026-10-05T12:00:00Z',
+      config: {
+        mode: 'slip',
+        playerColor: 'white',
+        elo: 1500,
+        botDelay: false,
+        severity: 'blunder',
+        frequency: 'frequent',
+      },
+      result: '1-0',
+      resultReason: 'checkmate',
+      pgn: '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. O-O g5 5. Nxg5',
+      tags: [
+        { ply: 1, fenBefore: 'fen0', san: 'e4', by: 'player' },
+        { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'bot' },
+        { ply: 3, fenBefore: 'fen2', san: 'Nf3', by: 'player' },
+        { ply: 4, fenBefore: 'fen3', san: 'Nc6', by: 'bot' },
+        { ply: 5, fenBefore: 'fen4', san: 'Bc4', by: 'player' },
+        { ply: 6, fenBefore: 'fen5', san: 'Bc5', by: 'bot' },
+        { ply: 7, fenBefore: 'fen6', san: 'O-O', by: 'player' },
+        {
+          ply: 8,
+          fenBefore: 'fen7',
+          san: 'g5',
+          by: 'bot',
+          slip: {
+            requestedSeverity: 'blunder',
+            measuredDrop: 28.5,
+            measuredSeverity: 'blunder',
+            fallbackUsed: 'none',
+            rankPlayed: 4,
+          },
+        },
+        { ply: 9, fenBefore: 'fen8', san: 'Nxg5', by: 'player' },
+      ],
+      analysis: [
+        { ply: 0, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 3, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 4, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 5, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 6, score: { kind: 'cp', value: 0 }, depth: 14 },
+        { ply: 7, score: { kind: 'cp', value: 0 }, depth: 14 }, // u0: equal (White win prob = 50%)
+        { ply: 8, score: { kind: 'cp', value: -300 }, depth: 14 }, // Black plays g5: White to move, White +300cp (White win prob ~78%, uBest = 78%)
+        { ply: 9, score: { kind: 'cp', value: 300 }, depth: 14 }, // White plays Nxg5: Black to move, White +300cp (uReply = 78%) -> capitalized!
+      ],
+    };
+
+    const model = buildReviewModel(slipGame);
+
+    expect(model.slipSummary).toBeDefined();
+    expect(model.slipSummary?.totalSlips).toBe(1);
+    expect(model.slipSummary?.capitalized).toBe(1);
+    expect(model.slipSummary?.missed).toBe(0);
+    expect(model.slipSummary?.squandered).toBe(0);
+
+    const slipItem = model.slipSummary?.items[0];
+    expect(slipItem?.ply).toBe(8);
+    expect(slipItem?.moveNumber).toBe(4);
+    expect(slipItem?.san).toBe('g5');
+    expect(slipItem?.tag.requestedSeverity).toBe('blunder');
+    expect(slipItem?.tag.measuredDrop).toBe(28.5);
+    expect(slipItem?.tag.fallbackUsed).toBe('none');
+    expect(slipItem?.playerReply?.san).toBe('Nxg5');
+    expect(slipItem?.verdict).toBe('capitalized');
+
+    // Eval graph has the slip marker
+    expect(model.evalGraphPoints.find((p) => p.ply === 8)?.slip).toBeDefined();
+  });
 });

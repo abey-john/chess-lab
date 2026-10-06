@@ -64,21 +64,25 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
 
   const selectedPoint = points.find((p) => p.ply === currentPly);
 
+  const hasSlips = points.some((p) => p.slip !== undefined);
+
   const getReadoutText = (pt: ReviewGraphPoint) => {
     const movePrefix = pt.ply === 0 ? 'Start Position' : `Ply ${pt.ply}${pt.san ? ` (${pt.san})` : ''}`;
+    const slipExtra = pt.slip ? ` · Bot Slip (${pt.slip.requestedSeverity})` : '';
+
     if (pt.scoreDisplay === '#' || pt.scoreDisplay.startsWith('+M')) {
-      return `${movePrefix}: White ${pt.scoreDisplay}`;
+      return `${movePrefix}: White ${pt.scoreDisplay}${slipExtra}`;
     }
     if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
-      return `${movePrefix}: Black ${pt.scoreDisplay}`;
+      return `${movePrefix}: Black ${pt.scoreDisplay}${slipExtra}`;
     }
     if (pt.score > 0) {
-      return `${movePrefix}: White ${pt.scoreDisplay}`;
+      return `${movePrefix}: White ${pt.scoreDisplay}${slipExtra}`;
     }
     if (pt.score < 0) {
-      return `${movePrefix}: Black ${pt.scoreDisplay}`;
+      return `${movePrefix}: Black ${pt.scoreDisplay}${slipExtra}`;
     }
-    return `${movePrefix}: Equal 0.0`;
+    return `${movePrefix}: Equal 0.0${slipExtra}`;
   };
 
   return (
@@ -93,6 +97,11 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
           )}
         </div>
         <div className="graph-legend">
+          {hasSlips && (
+            <span className="legend-item">
+              <span className="legend-dot slip" /> Bot Slip
+            </span>
+          )}
           <span className="legend-item">
             <span className="legend-dot inaccuracy" /> Inaccuracy
           </span>
@@ -229,7 +238,12 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
 
                 {isSelected && <circle cx={cx} cy={cy} r={9} className="node-active-ring" />}
 
-                {hasSevereQuality ? (
+                {pt.slip ? (
+                  <polygon
+                    points={`${cx},${cy - (isSelected ? 8.5 : 7)} ${cx + (isSelected ? 8.5 : 7)},${cy} ${cx},${cy + (isSelected ? 8.5 : 7)} ${cx - (isSelected ? 8.5 : 7)},${cy}`}
+                    className="node-marker slip-marker"
+                  />
+                ) : hasSevereQuality ? (
                   <circle
                     cx={cx}
                     cy={cy}

@@ -2,6 +2,8 @@ import type { Color, MoveQuality, PositionEval, SavedGame } from '../game/types'
 import { calculateMoveAccuracy, calculateSideAccuracy } from '../logic/accuracy';
 import { getQualityForDrop, type MoveClassification } from '../logic/classifyMove';
 import { evalScoreToWhiteWinProb, formatWhiteScore } from '../logic/winProb';
+import { classifyReply } from '../modes/slip/classifyReply';
+import type { ReplyVerdict, SlipTagData } from '../modes/slip/types';
 
 export interface ClassifiedMove {
   ply: number;
@@ -16,6 +18,7 @@ export interface ClassifiedMove {
   playerWinProb?: number; // Player's win% after this move (0 to 100)
   score?: number; // In pawns, clamped [-10, 10] (+ for White, - for Black, 0 for even)
   scoreDisplay?: string; // Formatted score e.g. "+1.4", "-0.8", "0.0", "+M2", "-M1", "#"
+  slip?: SlipTagData;
 }
 
 export interface MoveSwing {
@@ -45,6 +48,32 @@ export interface ReviewGraphPoint {
   by?: 'player' | 'bot';
   color?: Color;
   san?: string;
+  slip?: SlipTagData;
+}
+
+export interface SlipReviewItem {
+  ply: number;
+  moveNumber: number;
+  color: Color;
+  san: string;
+  tag: SlipTagData;
+  playerReply?: {
+    ply: number;
+    san: string;
+  };
+  u0?: number;
+  uBest?: number;
+  uReply?: number;
+  verdict: ReplyVerdict;
+}
+
+export interface SlipReviewSummary {
+  totalSlips: number;
+  capitalized: number;
+  missed: number;
+  squandered: number;
+  na: number;
+  items: SlipReviewItem[];
 }
 
 export interface ReviewModel {
@@ -60,6 +89,7 @@ export interface ReviewModel {
   whiteStats: SideStats;
   blackStats: SideStats;
   evalGraphPoints: ReviewGraphPoint[];
+  slipSummary?: SlipReviewSummary;
 }
 
 /**
@@ -165,6 +195,7 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       playerWinProb,
       score,
       scoreDisplay,
+      slip: tag.slip,
     });
 
     if (
@@ -183,6 +214,7 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
         by: tag.by,
         color: moveColor,
         san: tag.san,
+        slip: tag.slip,
       });
     }
   }
@@ -206,6 +238,83 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     .sort((a, b) => b.drop - a.drop)
     .slice(0, 5);
 
+  let slipSummary: SlipReviewSummary | undefined;
+  if (mode === 'slip') {
+    const slipItems: SlipReviewItem[] = [];
+    let capitalized = 0;
+    let missed = 0;
+    let squandered = 0;
+    let na = 0;
+
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (tag.slip) {
+        const ply = tag.ply;
+        const moveNumber = Math.ceil(ply / 2);
+        const moveColor: Color = ply % 2 === 1 ? 'white' : 'black';
+
+        const replyTag = tags[i + 1]?.by === 'player' ? tags[i + 1] : undefined;
+
+        let u0: number | undefined;
+        let uBest: number | undefined;
+        let uReply: number | undefined;
+
+        const evalBefore = evalByPly.get(ply - 1);
+        const evalAfterSlip = evalByPly.get(ply);
+
+        if (evalBefore) {
+          const whiteWinBefore = evalScoreToWhiteWinProb(evalBefore.score, moveColor);
+          u0 = playerColor === 'white' ? whiteWinBefore : 100 - whiteWinBefore;
+        }
+
+        if (evalAfterSlip) {
+          const whiteWinAfter = evalScoreToWhiteWinProb(evalAfterSlip.score, playerColor);
+          uBest = playerColor === 'white' ? whiteWinAfter : 100 - whiteWinAfter;
+        }
+
+        if (replyTag) {
+          const evalAfterReply = evalByPly.get(replyTag.ply);
+          if (evalAfterReply) {
+            const whiteWinReply = evalScoreToWhiteWinProb(evalAfterReply.score, botColor);
+            uReply = playerColor === 'white' ? whiteWinReply : 100 - whiteWinReply;
+          }
+        }
+
+        const verdict: ReplyVerdict =
+          u0 !== undefined && uBest !== undefined
+            ? classifyReply(u0, uBest, uReply ?? null)
+            : 'n/a';
+
+        if (verdict === 'capitalized') capitalized++;
+        else if (verdict === 'missed') missed++;
+        else if (verdict === 'squandered') squandered++;
+        else na++;
+
+        slipItems.push({
+          ply,
+          moveNumber,
+          color: moveColor,
+          san: tag.san,
+          tag: tag.slip,
+          playerReply: replyTag ? { ply: replyTag.ply, san: replyTag.san } : undefined,
+          u0,
+          uBest,
+          uReply,
+          verdict,
+        });
+      }
+    }
+
+    slipSummary = {
+      totalSlips: slipItems.length,
+      capitalized,
+      missed,
+      squandered,
+      na,
+      items: slipItems,
+    };
+  }
+
   return {
     gameId: id,
     mode,
@@ -219,5 +328,6 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     whiteStats,
     blackStats,
     evalGraphPoints,
+    slipSummary,
   };
 }
