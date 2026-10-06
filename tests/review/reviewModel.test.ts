@@ -264,6 +264,99 @@ describe('buildReviewModel', () => {
     expect(lastGraphPoint.scoreDisplay).toBe('-#');
   });
 
+  it('runs buildReviewModel on user 117-move game and prints endgame moves scoreDisplay', () => {
+    const { Chess } = require('chess.js');
+    const moves = [
+      'e4','c6','d4','Nf6','e5','Ng8','Nf3','d5','exd6','Nf6','dxe7','Qxe7+','Qe2','h6','Nc3','Qxe2+','Bxe2','Be6','O-O','Be7','Re1','Na6','a4','Nb4','Na2','a5','Nxb4','Bxb4','c3','Be7','c4','b6','d5','Bd7','dxc6','h5','cxd7+','Nxd7','c5','Nxc5','b4','axb4','Bb2','O-O-O','Bxg7','Rhf8','Bxf8','Bxf8','Rec1','Bh6','Rc2','b3','Rc3','Kb7','a5','Bg7','Rc4','Bxa1','axb6','Re8','Rxc5','Re6','h4','Rxe2','Rxh5','Kxb6','Rh6+','Kb5','Rh5+','Re5','Rxe5+','Bxe5','Nd2','Kc5','Nxb3+','Kd6','h5','Kd5','h6','Bd6','h7','Be5','f4','Bc3','Nd2','Ke6','Ne4','Ba1','g4','f6','Nxf6','Bxf6','g5','Bc3','Kg2','Bd4','Kf3','Kf5','Kg3','Bf6','gxf6','Kxf6','h8=Q+','Ke7','Qe5+','Kd7','f5','Kc8','f6','Kd7','f7','Kc8','f8=Q+','Kb7','Qb5+','Ka7','Qfb8#'
+    ];
+    const chess = new Chess();
+    const tags = [];
+    for (let i = 0; i < moves.length; i++) {
+      const fenBefore = chess.fen();
+      const m = chess.move(moves[i]);
+      tags.push({
+        ply: i + 1,
+        fenBefore,
+        san: m.san,
+        by: (i % 2 === 0 ? 'player' : 'bot') as 'player' | 'bot',
+      });
+    }
+
+    // Build analysis matching our actual Stockfish evals:
+    const analysis = [
+      { ply: 0, score: { kind: 'cp', value: 20 }, depth: 12 },
+    ];
+    for (let i = 1; i <= 102; i++) {
+      analysis.push({ ply: i, score: { kind: 'cp', value: 0 }, depth: 12 });
+    }
+    // Plies 103 to 117 from our actual Stockfish test:
+    analysis.push({ ply: 103, score: { kind: 'cp', value: -3667 }, depth: 12 }); // Black to move
+    analysis.push({ ply: 104, score: { kind: 'cp', value: 4265 }, depth: 12 });  // White to move
+    analysis.push({ ply: 105, score: { kind: 'cp', value: -4301 }, depth: 12 }); // Black to move
+    analysis.push({ ply: 106, score: { kind: 'cp', value: 4284 }, depth: 12 });  // White to move
+    analysis.push({ ply: 107, score: { kind: 'mate', value: -7 }, depth: 12 });  // Black to move
+    analysis.push({ ply: 108, score: { kind: 'mate', value: 7 }, depth: 12 });   // White to move
+    analysis.push({ ply: 109, score: { kind: 'mate', value: -5 }, depth: 12 });  // Black to move
+    analysis.push({ ply: 110, score: { kind: 'mate', value: 4 }, depth: 12 });   // White to move
+    analysis.push({ ply: 111, score: { kind: 'mate', value: -3 }, depth: 12 });  // Black to move
+    analysis.push({ ply: 112, score: { kind: 'mate', value: 3 }, depth: 12 });   // White to move
+    analysis.push({ ply: 113, score: { kind: 'mate', value: -2 }, depth: 12 });  // Black to move
+    analysis.push({ ply: 114, score: { kind: 'mate', value: 2 }, depth: 12 });   // White to move
+    analysis.push({ ply: 115, score: { kind: 'mate', value: -1 }, depth: 12 });  // Black to move
+    analysis.push({ ply: 116, score: { kind: 'mate', value: 1 }, depth: 12 });   // White to move
+    analysis.push({ ply: 117, score: { kind: 'mate', value: 0 }, depth: 12 });   // Checkmate
+
+    const game: SavedGame = {
+      version: 1,
+      id: 'test-user-game',
+      mode: 'standard',
+      startedAt: '2026-10-05T12:00:00Z',
+      config: {
+        mode: 'standard',
+        playerColor: 'white',
+        elo: 1500,
+        botDelay: false,
+      },
+      result: '1-0',
+      resultReason: 'Checkmate — White wins',
+      pgn: chess.pgn(),
+      tags,
+      analysis,
+    };
+
+    const model = buildReviewModel(game);
+    const endgameMoves = model.classifiedMoves.slice(102);
+    for (const m of endgameMoves) {
+      console.log(`PLY ${m.ply} (${m.san}): scoreDisplay = ${m.scoreDisplay}`);
+    }
+
+    // Move 103 (h8=Q+): White promotes Queen
+    expect(model.classifiedMoves[102].scoreDisplay).toBe('+36.7');
+    expect(model.classifiedMoves[102].classification?.quality).toBe('good');
+
+    // Move 107 (f5): Mate in 7 for White
+    expect(model.classifiedMoves[106].scoreDisplay).toBe('+M7');
+    expect(model.classifiedMoves[106].classification?.quality).toBe('good');
+
+    // Move 113 (f8=Q+): Mate in 2 for White
+    expect(model.classifiedMoves[112].scoreDisplay).toBe('+M2');
+    expect(model.classifiedMoves[112].classification?.quality).toBe('good');
+
+    // Move 116 (Ka7): Mate in 1 for White
+    expect(model.classifiedMoves[115].scoreDisplay).toBe('+M1');
+
+    // Move 117 (Qfb8#): Terminal checkmate
+    expect(model.classifiedMoves[116].scoreDisplay).toBe('#');
+    expect(model.classifiedMoves[116].classification?.quality).toBe('good');
+
+    // All endgame points in graph must be positive (+10 for mate, White win)
+    const endgamePoints = model.evalGraphPoints.slice(103);
+    for (const pt of endgamePoints) {
+      expect(pt.score).toBeGreaterThan(0);
+      expect(pt.scoreDisplay).not.toContain('-');
+    }
+  });
+
   it('correctly handles mate sequence where White forces mate against Black', () => {
     // Game where White has forced mate in 2, then mates
     // Ply 0: Start
