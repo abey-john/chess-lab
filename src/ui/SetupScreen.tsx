@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../game/gameStore';
-import type { Color, InProgressGame, SavedGame } from '../game/types';
+import type { Color, InProgressGame, ModeId, SavedGame } from '../game/types';
+import type { Frequency, SeverityChoice } from '../modes/slip/types';
 import { ELO_MAX, ELO_MIN } from '../logic/config';
 import { clearSavedGames, deleteSavedGame, loadSavedGames } from '../storage/savedGames';
 import { loadInProgress } from '../storage/inProgress';
@@ -16,6 +17,9 @@ function getEloTier(elo: number): string {
 }
 
 export function SetupScreen() {
+  const [mode, setMode] = useState<ModeId>('standard');
+  const [severity, setSeverity] = useState<SeverityChoice>('mixed');
+  const [frequency, setFrequency] = useState<Frequency>('sometimes');
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white');
   const [elo, setElo] = useState<number>(1500);
   const [inProgress, setInProgress] = useState<InProgressGame | null>(() => loadInProgress());
@@ -30,12 +34,23 @@ export function SetupScreen() {
     const playerColor: Color =
       colorChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : colorChoice;
 
-    startGame({
-      mode: 'standard',
-      playerColor,
-      elo,
-      botDelay: true,
-    });
+    if (mode === 'slip') {
+      startGame({
+        mode: 'slip',
+        playerColor,
+        elo,
+        botDelay: true,
+        severity,
+        frequency,
+      });
+    } else {
+      startGame({
+        mode: 'standard',
+        playerColor,
+        elo,
+        botDelay: true,
+      });
+    }
   };
 
   const handleResume = () => {
@@ -86,8 +101,20 @@ export function SetupScreen() {
             <div className="resume-body">
               <div className="resume-stat">
                 <span className="stat-label">Mode:</span>
-                <span className="stat-value">{inProgress.mode}</span>
+                <span className="stat-value">{inProgress.mode === 'slip' ? 'Slip Mode' : 'Standard'}</span>
               </div>
+              {inProgress.config.mode === 'slip' && (
+                <>
+                  <div className="resume-stat">
+                    <span className="stat-label">Severity:</span>
+                    <span className="stat-value capitalize">{inProgress.config.severity}</span>
+                  </div>
+                  <div className="resume-stat">
+                    <span className="stat-label">Frequency:</span>
+                    <span className="stat-value capitalize">{inProgress.config.frequency}</span>
+                  </div>
+                </>
+              )}
               <div className="resume-stat">
                 <span className="stat-label">Playing As:</span>
                 <span className="stat-value capitalize">{inProgress.config.playerColor}</span>
@@ -118,11 +145,102 @@ export function SetupScreen() {
           <div className="setup-group">
             <label className="group-label">Game Mode</label>
             <div className="mode-selector">
-              <button className="mode-btn active" type="button">
+              <button
+                className={`mode-btn ${mode === 'standard' ? 'active' : ''}`}
+                type="button"
+                onClick={() => setMode('standard')}
+              >
                 Standard Chess
+              </button>
+              <button
+                className={`mode-btn ${mode === 'slip' ? 'active' : ''}`}
+                type="button"
+                onClick={() => setMode('slip')}
+              >
+                Slip Mode
               </button>
             </div>
           </div>
+
+          {mode === 'slip' && (
+            <div className="slip-options-group">
+              <div className="setup-group">
+                <div className="group-header-with-value">
+                  <label className="group-label">Slip Severity</label>
+                  <span className="group-hint">
+                    {severity === 'mixed' && 'Weighted random mix'}
+                    {severity === 'inaccuracy' && 'Minor error (5–10% drop)'}
+                    {severity === 'mistake' && 'Significant error (10–20% drop)'}
+                    {severity === 'blunder' && 'Game-changing error (>20% drop)'}
+                  </span>
+                </div>
+                <div className="segmented-selector">
+                  <button
+                    type="button"
+                    className={`segment-btn ${severity === 'mixed' ? 'active' : ''}`}
+                    onClick={() => setSeverity('mixed')}
+                  >
+                    Mixed
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${severity === 'inaccuracy' ? 'active' : ''}`}
+                    onClick={() => setSeverity('inaccuracy')}
+                  >
+                    Inaccuracy
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${severity === 'mistake' ? 'active' : ''}`}
+                    onClick={() => setSeverity('mistake')}
+                  >
+                    Mistake
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${severity === 'blunder' ? 'active' : ''}`}
+                    onClick={() => setSeverity('blunder')}
+                  >
+                    Blunder
+                  </button>
+                </div>
+              </div>
+
+              <div className="setup-group">
+                <div className="group-header-with-value">
+                  <label className="group-label">Slip Frequency</label>
+                  <span className="group-hint">
+                    {frequency === 'rare' && 'Every 9–14 bot moves'}
+                    {frequency === 'sometimes' && 'Every 5–8 bot moves'}
+                    {frequency === 'frequent' && 'Every 3–4 bot moves'}
+                  </span>
+                </div>
+                <div className="segmented-selector">
+                  <button
+                    type="button"
+                    className={`segment-btn ${frequency === 'rare' ? 'active' : ''}`}
+                    onClick={() => setFrequency('rare')}
+                  >
+                    Rare
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${frequency === 'sometimes' ? 'active' : ''}`}
+                    onClick={() => setFrequency('sometimes')}
+                  >
+                    Sometimes
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${frequency === 'frequent' ? 'active' : ''}`}
+                    onClick={() => setFrequency('frequent')}
+                  >
+                    Frequent
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="setup-group">
             <label className="group-label">Play As</label>
@@ -201,7 +319,7 @@ export function SetupScreen() {
                     <span className="past-game-result">{g.result}</span>
                     <div className="past-game-meta">
                       <span className="past-game-desc">
-                        vs Stockfish ({g.config.elo} Elo) — {g.tags.length} plies
+                        vs Stockfish ({g.config.mode === 'slip' ? 'Slip Mode · ' : ''}{g.config.elo} Elo) — {g.tags.length} plies
                       </span>
                       <span className="past-game-date">
                         {new Date(g.startedAt).toLocaleDateString()}

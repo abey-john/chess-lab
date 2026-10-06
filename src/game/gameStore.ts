@@ -489,7 +489,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
     setConfig: (newConfig) => {
       set((state) => ({
-        config: { ...state.config, ...newConfig },
+        config: { ...state.config, ...newConfig } as GameConfig,
       }));
     },
   };
