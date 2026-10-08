@@ -7,4 +7,10 @@ export default defineConfig({
     headless: true,
     baseURL: 'http://localhost:5173/chess-lab/',
   },
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173/chess-lab/',
+    reuseExistingServer: true,
+    timeout: 120000,
+  },
 });
