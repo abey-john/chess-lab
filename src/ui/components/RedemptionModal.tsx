@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
+import type { DrawBrushes } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { getLegalDests, isPromotionMove } from '../../game/chessRules';
 import { useGameStore } from '../../game/gameStore';
@@ -10,6 +11,13 @@ import 'chessground/assets/chessground.brown.css';
 import 'chessground/assets/chessground.cburnett.css';
 
 const TOTAL_TIME_MS = 15000;
+
+const CHESSGROUND_BRUSHES: DrawBrushes = {
+  green: { key: 'g', color: '#22c55e', opacity: 0.95, lineWidth: 10 },
+  red: { key: 'r', color: '#ef4444', opacity: 1, lineWidth: 10 },
+  blue: { key: 'b', color: '#3b82f6', opacity: 1, lineWidth: 10 },
+  yellow: { key: 'y', color: '#eab308', opacity: 1, lineWidth: 10 },
+};
 
 export function RedemptionModal() {
   const activeRedemption = useGameStore((s) => s.activeRedemption);
@@ -21,9 +29,16 @@ export function RedemptionModal() {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
 
+  const activeRedemptionRef = useRef(activeRedemption);
+  useEffect(() => {
+    activeRedemptionRef.current = activeRedemption;
+  }, [activeRedemption]);
+
   const [timeLeftMs, setTimeLeftMs] = useState(TOTAL_TIME_MS);
   const timeLeftMsRef = useRef(timeLeftMs);
-  timeLeftMsRef.current = timeLeftMs;
+  useEffect(() => {
+    timeLeftMsRef.current = timeLeftMs;
+  }, [timeLeftMs]);
 
   const [feedback, setFeedback] = useState<{
     type: 'idle' | 'success' | 'failure' | 'step';
@@ -38,12 +53,13 @@ export function RedemptionModal() {
   const failureHandledRef = useRef(false);
   const failureTimerRef = useRef<number | null>(null);
 
-  // Trigger failure sequence (shake, red glow, green arrow reveal, 1.2s hold)
-  const triggerFailure = (reason: 'failed' | 'timeout') => {
-    if (failureHandledRef.current || !activeRedemption) return;
+  // Trigger failure sequence (shake, red glow, green arrow reveal, 1.5s hold)
+  const triggerFailure = useCallback((reason: 'failed' | 'timeout') => {
+    const currentRedemption = activeRedemptionRef.current;
+    if (failureHandledRef.current || !currentRedemption) return;
     failureHandledRef.current = true;
 
-    const session = activeRedemption.session;
+    const session = currentRedemption.session;
     const playerColor = session.getPlayerColor();
     const expected = session.getExpectedMoveDetails();
 
@@ -88,8 +104,8 @@ export function RedemptionModal() {
 
     failureTimerRef.current = window.setTimeout(() => {
       failRedemption(reason);
-    }, 1200);
-  };
+    }, 1500);
+  }, [failRedemption, tickRedemptionTimer]);
 
   // Cleanup failure timer on unmount
   useEffect(() => {
@@ -100,15 +116,17 @@ export function RedemptionModal() {
     };
   }, []);
 
+  const puzzleId = activeRedemption?.puzzle.id;
+  const puzzleStatus = activeRedemption?.status;
+
   // 15-second countdown timer
   useEffect(() => {
-    if (!activeRedemption || activeRedemption.status !== 'active' || isFailed) return;
+    if (!puzzleId || puzzleStatus !== 'active' || isFailed) return;
 
     const startTime = Date.now();
-    const startRemaining = timeLeftMs;
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, startRemaining - elapsed);
+      const remaining = Math.max(0, TOTAL_TIME_MS - elapsed);
       setTimeLeftMs(remaining);
 
       if (remaining <= 0) {
@@ -118,13 +136,14 @@ export function RedemptionModal() {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [activeRedemption?.puzzle.id, activeRedemption?.status, isFailed]);
+  }, [puzzleId, puzzleStatus, isFailed, triggerFailure]);
 
   // Initialize and manage the puzzle Chessground board
   useEffect(() => {
-    if (!containerRef.current || !activeRedemption) return;
+    const currentRedemption = activeRedemptionRef.current;
+    if (!containerRef.current || !currentRedemption || !puzzleId) return;
 
-    const session = activeRedemption.session;
+    const session = currentRedemption.session;
     const playerColor = session.getPlayerColor();
     const chess = session.getChessInstance();
 
@@ -210,9 +229,7 @@ export function RedemptionModal() {
       drawable: {
         enabled: false,
         visible: true,
-        brushes: {
-          green: { key: 'g', color: '#22c55e', opacity: 0.95, lineWidth: 10 },
-        },
+        brushes: CHESSGROUND_BRUSHES,
       },
     });
 
@@ -237,7 +254,7 @@ export function RedemptionModal() {
       api.destroy();
       apiRef.current = null;
     };
-  }, [activeRedemption?.puzzle.id, submitRedemptionMove]);
+  }, [puzzleId, submitRedemptionMove, triggerFailure]);
 
   if (!activeRedemption) return null;
 

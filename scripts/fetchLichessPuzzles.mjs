@@ -70,7 +70,7 @@ function validateAndFormatPuzzle(rawRow) {
       rating: Math.round(Rating),
       themes: Array.isArray(Themes) ? Themes : (Themes ? Themes.split(' ') : []),
     };
-  } catch (err) {
+  } catch {
     return null;
   }
 }

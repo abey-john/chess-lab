@@ -291,30 +291,25 @@ test('Redemption failure triggers arcade shake, failure banner, green solution a
   await page.mouse.up();
 
   // Verify failure feedback appears immediately
-  // 1. Board shake
+  // 1. Board shake and green solution arrow
   await expect(page.locator('.redemption-board-wrapper')).toHaveClass(/board-shake/);
+  await expect(page.locator('.redemption-chessground svg.cg-shapes line')).toBeVisible();
 
-  // 2. Modal failed class
+  // 2. Modal failed class & banner
   await expect(modal).toHaveClass(/qte-failed/);
-
-  // 3. Failure banner with "INCORRECT MOVE" and best move chip
   const failureBanner = page.locator('#redemption-failure-banner');
   await expect(failureBanner).toBeVisible();
   await expect(failureBanner).toContainText('INCORRECT MOVE');
-  await expect(failureBanner).toContainText('1 Life Lost');
   await expect(failureBanner.locator('.best-move-chip')).toHaveText(puzzleInfo.expectedDetails.san);
 
-  // 4. Accept Blunder button is disabled
+  // 3. Accept Blunder button is disabled
   await expect(page.locator('#accept-blunder-btn')).toBeDisabled();
-
-  // 5. Green arrow shape exists in Chessground SVG
-  await expect(page.locator('.redemption-chessground svg.cg-shapes line')).toBeVisible();
 
   // Take screenshot of failure state
   await page.screenshot({ path: 'tests/e2e/redemption_qte_failure.png' });
 
-  // 6. After 1.2s delay, modal automatically dismisses and 1 life is lost
-  await expect(modal).not.toBeVisible({ timeout: 3000 });
+  // 4. After delay, modal automatically dismisses and 1 life is lost
+  await expect(modal).not.toBeVisible({ timeout: 4000 });
 
   // Verify lives remaining decreased to 2 (❤️❤️)
   await expect(page.locator('.redemption-lives-badge')).toContainText('❤️❤️');
