@@ -1,4 +1,5 @@
 import type { BotStrategy, ModeId } from '../game/types';
+import { redemptionStrategy } from './redemption/strategy';
 import { slipStrategy } from './slip/strategy';
 import { standardStrategy } from './standard/strategy';
 
@@ -23,7 +24,7 @@ export const MODES: Record<ModeId, ModeDefinition> = {
   redemption: {
     id: 'redemption',
     name: 'Redemption',
-    strategy: standardStrategy,
+    strategy: redemptionStrategy,
   },
 };
 
@@ -35,4 +36,4 @@ export function getModeDefinition(modeId: ModeId): ModeDefinition {
   return mode;
 }
 
-export { slipStrategy, standardStrategy };
+export { redemptionStrategy, slipStrategy, standardStrategy };

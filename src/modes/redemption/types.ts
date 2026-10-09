@@ -1,3 +1,5 @@
+import type { PuzzleSession } from './puzzleService';
+
 export type RedemptionLives = 1 | 3 | 'unlimited';
 
 export interface RedemptionConfigExtension {
@@ -29,4 +31,27 @@ export interface RedemptionTagData {
   outcome: RedemptionOutcome;
   puzzleId: string;
   puzzleRating: number;
+}
+
+export interface ActiveRedemptionState {
+  blunderPly: number;
+  blunderMove: {
+    from: string;
+    to: string;
+    promotion?: string;
+    san: string;
+    fenBefore: string;
+    fenAfter: string;
+  };
+  puzzle: ChessPuzzle;
+  session: PuzzleSession;
+  livesRemaining: number | 'unlimited';
+  status: 'active' | 'solved' | 'failed' | 'timeout' | 'accepted';
+  timeRemainingMs: number;
+}
+
+export interface RedemptionStrategyState {
+  livesRemaining: number | 'unlimited';
+  redemptionEvents: RedemptionEvent[];
+  usedPuzzleIds: string[];
 }

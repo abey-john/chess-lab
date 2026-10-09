@@ -3,6 +3,13 @@ import { create } from 'zustand';
 import { getSharedEngine } from '../engine/engineService';
 import { DRAW_ACCEPT_MAX_ABS_CP } from '../logic/config';
 import { getModeDefinition } from '../modes';
+import { checkMoveForBlunder } from '../modes/redemption/blunderDetector';
+import { getPuzzleForElo, type PuzzleMoveResult, PuzzleSession } from '../modes/redemption/puzzleService';
+import type {
+  ActiveRedemptionState,
+  RedemptionEvent,
+  RedemptionStrategyState,
+} from '../modes/redemption/types';
 import { clearInProgress, loadInProgress, saveInProgress } from '../storage/inProgress';
 import { saveGame } from '../storage/savedGames';
 import { executeBotTurn } from './botTurn';
@@ -49,6 +56,8 @@ export interface GameState {
   hasNewMoveSinceHistoryBrowsed: boolean;
   drawOfferStatus: 'idle' | 'offered' | 'declined' | 'accepted';
   activeReviewGame: SavedGame | null;
+  activeRedemption: ActiveRedemptionState | null;
+  isCheckingBlunder: boolean;
 
   makeMove: (
     from: string,
@@ -71,6 +80,13 @@ export interface GameState {
   toggleOrientation: () => void;
   setOrientation: (color: Color) => void;
   setConfig: (config: Partial<GameConfig>) => void;
+  acceptBlunder: () => void;
+  failRedemption: (reason?: 'failed' | 'timeout') => void;
+  solveRedemption: () => void;
+  submitRedemptionMove: (
+    move: string | { from: string; to: string; promotion?: string }
+  ) => PuzzleMoveResult | null;
+  tickRedemptionTimer: (remainingMs: number) => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -79,6 +95,87 @@ const DEFAULT_CONFIG: GameConfig = {
   elo: 1500,
   botDelay: true,
 };
+
+async function checkAndTriggerRedemption(
+  gameId: string,
+  moveRecord: GameMoveRecord
+) {
+  const state = useGameStore.getState();
+  if (state.gameId !== gameId || state.isGameOver) return;
+  if (state.config.mode !== 'redemption') return;
+
+  const stratState = (state.strategyState as RedemptionStrategyState) ?? {
+    livesRemaining: (state.config as any).lives ?? 3,
+    redemptionEvents: [],
+    usedPuzzleIds: [],
+  };
+
+  const lives = stratState.livesRemaining;
+  // If lives are exhausted, no redemption QTE triggers; proceed to bot turn
+  if (lives !== 'unlimited' && lives <= 0) {
+    executeBotTurn(gameId);
+    return;
+  }
+
+  useGameStore.setState({ isCheckingBlunder: true });
+
+  try {
+    const engine = getSharedEngine();
+    const result = await checkMoveForBlunder(
+      moveRecord.fenBefore,
+      moveRecord.fenAfter,
+      engine
+    );
+
+    const curr = useGameStore.getState();
+    if (curr.gameId !== gameId || curr.isGameOver) {
+      useGameStore.setState({ isCheckingBlunder: false });
+      return;
+    }
+
+    if (result.isBlunder) {
+      const excludeSet = new Set(stratState.usedPuzzleIds);
+      const puzzle = getPuzzleForElo(curr.config.elo, excludeSet);
+      const session = new PuzzleSession(puzzle);
+
+      const updatedStratState: RedemptionStrategyState = {
+        ...stratState,
+        usedPuzzleIds: [...stratState.usedPuzzleIds, puzzle.id],
+      };
+
+      useGameStore.setState({
+        strategyState: updatedStratState,
+        isCheckingBlunder: false,
+        activeRedemption: {
+          blunderPly: moveRecord.ply,
+          blunderMove: moveRecord,
+          puzzle,
+          session,
+          livesRemaining: lives,
+          status: 'active',
+          timeRemainingMs: 15000,
+        },
+      });
+
+      saveInProgress({
+        version: 1,
+        id: gameId,
+        mode: curr.config.mode,
+        config: curr.config,
+        startedAt: curr.startedAt,
+        moves: curr.history.map((h) => `${h.from}${h.to}${h.promotion ?? ''}`),
+        strategyState: updatedStratState,
+      });
+    } else {
+      useGameStore.setState({ isCheckingBlunder: false });
+      executeBotTurn(gameId);
+    }
+  } catch (err) {
+    console.warn('Blunder check error or engine worker unavailable:', err);
+    useGameStore.setState({ isCheckingBlunder: false });
+    executeBotTurn(gameId);
+  }
+}
 
 export const useGameStore = create<GameState>((set, get) => {
   const initialChess = new Chess();
@@ -109,6 +206,8 @@ export const useGameStore = create<GameState>((set, get) => {
     hasNewMoveSinceHistoryBrowsed: false,
     drawOfferStatus: 'idle',
     activeReviewGame: null,
+    activeRedemption: null,
+    isCheckingBlunder: false,
 
     makeMove: (from, to, promotion, tagOverride) => {
       const { chess, isGameOver, gameId, config } = get();
@@ -186,7 +285,11 @@ export const useGameStore = create<GameState>((set, get) => {
 
           const botColor = config.playerColor === 'white' ? 'black' : 'white';
           if (nextTurn === botColor) {
-            executeBotTurn(gameId);
+            if (config.mode === 'redemption' && tag.by === 'player') {
+              checkAndTriggerRedemption(gameId, moveRecord);
+            } else {
+              executeBotTurn(gameId);
+            }
           }
         } else {
           const finishedGame: SavedGame = {
@@ -253,6 +356,8 @@ export const useGameStore = create<GameState>((set, get) => {
         resultReason,
         dests: new Map(),
         activeReviewGame: finishedGame,
+        activeRedemption: null,
+        isCheckingBlunder: false,
       });
       clearInProgress();
     },
@@ -300,6 +405,8 @@ export const useGameStore = create<GameState>((set, get) => {
             dests: new Map(),
             drawOfferStatus: 'accepted',
             activeReviewGame: finishedGame,
+            activeRedemption: null,
+            isCheckingBlunder: false,
           });
           clearInProgress();
           return true;
@@ -327,6 +434,9 @@ export const useGameStore = create<GameState>((set, get) => {
       const newGameId = createGameId();
       const newStartedAt = new Date().toISOString();
       const updatedConfig = customConfig ? ({ ...get().config, ...customConfig } as GameConfig) : get().config;
+      if (updatedConfig.mode === 'redemption' && !(updatedConfig as any).lives) {
+        (updatedConfig as any).lives = 3;
+      }
       const modeDef = getModeDefinition(updatedConfig.mode);
       const initialStrategyState = modeDef.strategy.init(updatedConfig, Math.random);
 
@@ -353,6 +463,8 @@ export const useGameStore = create<GameState>((set, get) => {
         hasNewMoveSinceHistoryBrowsed: false,
         drawOfferStatus: 'idle',
         activeReviewGame: null,
+        activeRedemption: null,
+        isCheckingBlunder: false,
       });
 
       clearInProgress();
@@ -368,13 +480,13 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     goToSetup: () => {
-      set({ screen: 'setup' });
+      set({ screen: 'setup', activeRedemption: null });
     },
 
     openReview: (game) => {
       const target = game ?? get().activeReviewGame;
       if (target) {
-        set({ activeReviewGame: target, screen: 'review' });
+        set({ activeReviewGame: target, screen: 'review', activeRedemption: null });
       }
     },
 
@@ -453,6 +565,8 @@ export const useGameStore = create<GameState>((set, get) => {
         viewingPly: null,
         hasNewMoveSinceHistoryBrowsed: false,
         drawOfferStatus: 'idle',
+        activeRedemption: null,
+        isCheckingBlunder: false,
       });
 
       if (!overState.isOver) {
@@ -491,6 +605,220 @@ export const useGameStore = create<GameState>((set, get) => {
       set((state) => ({
         config: { ...state.config, ...newConfig } as GameConfig,
       }));
+    },
+
+    acceptBlunder: () => {
+      const { activeRedemption, gameId, tags, strategyState, config, startedAt, history } = get();
+      if (!activeRedemption || activeRedemption.status !== 'active') return;
+
+      const stratState = (strategyState as RedemptionStrategyState) ?? {
+        livesRemaining: config.mode === 'redemption' ? config.lives : 3,
+        redemptionEvents: [],
+        usedPuzzleIds: [],
+      };
+
+      const event: RedemptionEvent = {
+        blunderPly: activeRedemption.blunderPly,
+        puzzleId: activeRedemption.puzzle.id,
+        puzzleRating: activeRedemption.puzzle.rating,
+        outcome: 'accepted',
+        timeSpentMs: 15000 - activeRedemption.timeRemainingMs,
+      };
+
+      const updatedStratState: RedemptionStrategyState = {
+        ...stratState,
+        redemptionEvents: [...stratState.redemptionEvents, event],
+      };
+
+      const updatedTags = tags.map((t) => {
+        if (t.ply === activeRedemption.blunderPly) {
+          return {
+            ...t,
+            redemption: {
+              attempted: false,
+              outcome: 'accepted' as const,
+              puzzleId: activeRedemption.puzzle.id,
+              puzzleRating: activeRedemption.puzzle.rating,
+            },
+          };
+        }
+        return t;
+      });
+
+      set({
+        activeRedemption: null,
+        tags: updatedTags,
+        strategyState: updatedStratState,
+      });
+
+      saveInProgress({
+        version: 1,
+        id: gameId,
+        mode: config.mode,
+        config,
+        startedAt,
+        moves: history.map((h) => `${h.from}${h.to}${h.promotion ?? ''}`),
+        strategyState: updatedStratState,
+      });
+
+      executeBotTurn(gameId);
+    },
+
+    failRedemption: (reason = 'failed') => {
+      const { activeRedemption, gameId, tags, strategyState, config, startedAt, history } = get();
+      if (!activeRedemption || activeRedemption.status !== 'active') return;
+
+      const stratState = (strategyState as RedemptionStrategyState) ?? {
+        livesRemaining: config.mode === 'redemption' ? config.lives : 3,
+        redemptionEvents: [],
+        usedPuzzleIds: [],
+      };
+
+      let nextLives = stratState.livesRemaining;
+      if (typeof nextLives === 'number') {
+        nextLives = Math.max(0, nextLives - 1);
+      }
+
+      const event: RedemptionEvent = {
+        blunderPly: activeRedemption.blunderPly,
+        puzzleId: activeRedemption.puzzle.id,
+        puzzleRating: activeRedemption.puzzle.rating,
+        outcome: reason,
+        timeSpentMs: 15000 - activeRedemption.timeRemainingMs,
+      };
+
+      const updatedStratState: RedemptionStrategyState = {
+        ...stratState,
+        livesRemaining: nextLives,
+        redemptionEvents: [...stratState.redemptionEvents, event],
+      };
+
+      const updatedTags = tags.map((t) => {
+        if (t.ply === activeRedemption.blunderPly) {
+          return {
+            ...t,
+            redemption: {
+              attempted: true,
+              outcome: reason,
+              puzzleId: activeRedemption.puzzle.id,
+              puzzleRating: activeRedemption.puzzle.rating,
+            },
+          };
+        }
+        return t;
+      });
+
+      set({
+        activeRedemption: null,
+        tags: updatedTags,
+        strategyState: updatedStratState,
+      });
+
+      saveInProgress({
+        version: 1,
+        id: gameId,
+        mode: config.mode,
+        config,
+        startedAt,
+        moves: history.map((h) => `${h.from}${h.to}${h.promotion ?? ''}`),
+        strategyState: updatedStratState,
+      });
+
+      executeBotTurn(gameId);
+    },
+
+    solveRedemption: () => {
+      const { activeRedemption, gameId, tags, strategyState, config, startedAt, history, chess } = get();
+      if (!activeRedemption || activeRedemption.status !== 'active') return;
+
+      const stratState = (strategyState as RedemptionStrategyState) ?? {
+        livesRemaining: config.mode === 'redemption' ? config.lives : 3,
+        redemptionEvents: [],
+        usedPuzzleIds: [],
+      };
+
+      const event: RedemptionEvent = {
+        blunderPly: activeRedemption.blunderPly,
+        puzzleId: activeRedemption.puzzle.id,
+        puzzleRating: activeRedemption.puzzle.rating,
+        outcome: 'solved',
+        timeSpentMs: 15000 - activeRedemption.timeRemainingMs,
+      };
+
+      const updatedStratState: RedemptionStrategyState = {
+        ...stratState,
+        redemptionEvents: [...stratState.redemptionEvents, event],
+      };
+
+      chess.load(activeRedemption.blunderMove.fenBefore);
+      const restoredHistory = history.slice(0, -1);
+      const restoredTags = tags.slice(0, -1);
+      const lastMove: [string, string] | null = restoredHistory.length > 0
+        ? [restoredHistory[restoredHistory.length - 1].from, restoredHistory[restoredHistory.length - 1].to]
+        : null;
+
+      set({
+        activeRedemption: null,
+        fen: activeRedemption.blunderMove.fenBefore,
+        turn: config.playerColor,
+        dests: getLegalDests(chess),
+        isCheck: chess.inCheck(),
+        isGameOver: false,
+        lastMove,
+        history: restoredHistory,
+        tags: restoredTags,
+        strategyState: updatedStratState,
+      });
+
+      saveInProgress({
+        version: 1,
+        id: gameId,
+        mode: config.mode,
+        config,
+        startedAt,
+        moves: restoredHistory.map((h) => `${h.from}${h.to}${h.promotion ?? ''}`),
+        strategyState: updatedStratState,
+      });
+    },
+
+    submitRedemptionMove: (move) => {
+      const { activeRedemption } = get();
+      if (!activeRedemption || activeRedemption.status !== 'active') return null;
+
+      const res = activeRedemption.session.submitMove(move);
+      if (!res.success) {
+        get().failRedemption('failed');
+        return res;
+      }
+
+      if (res.isComplete) {
+        get().solveRedemption();
+        return res;
+      }
+
+      set({
+        activeRedemption: {
+          ...activeRedemption,
+        },
+      });
+      return res;
+    },
+
+    tickRedemptionTimer: (remainingMs) => {
+      const { activeRedemption } = get();
+      if (!activeRedemption || activeRedemption.status !== 'active') return;
+
+      if (remainingMs <= 0) {
+        get().failRedemption('timeout');
+        return;
+      }
+
+      set({
+        activeRedemption: {
+          ...activeRedemption,
+          timeRemainingMs: remainingMs,
+        },
+      });
     },
   };
 });
