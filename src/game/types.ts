@@ -1,7 +1,8 @@
 import type { EngineService, EvalScore } from '../engine/types';
+import type { RedemptionConfigExtension, RedemptionTagData } from '../modes/redemption/types';
 import type { Frequency, SeverityChoice, SlipTagData } from '../modes/slip/types';
 
-export type ModeId = 'standard' | 'slip';
+export type ModeId = 'standard' | 'slip' | 'redemption';
 export type Color = 'white' | 'black';
 export type MoveQuality = 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
@@ -14,9 +15,10 @@ export interface BaseConfig {
 
 export type GameConfig =
   | (BaseConfig & { mode: 'standard' })
-  | (BaseConfig & { mode: 'slip'; severity: SeverityChoice; frequency: Frequency });
+  | (BaseConfig & { mode: 'slip'; severity: SeverityChoice; frequency: Frequency })
+  | (BaseConfig & RedemptionConfigExtension);
 
-export type { SlipTagData };
+export type { RedemptionTagData, SlipTagData };
 
 export interface MoveTag {
   ply: number; // 1-based
@@ -24,6 +26,7 @@ export interface MoveTag {
   san: string;
   by: 'player' | 'bot';
   slip?: SlipTagData; // declared in v1, never populated in v1
+  redemption?: RedemptionTagData;
 }
 
 export interface PositionEval {

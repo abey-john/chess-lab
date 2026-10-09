@@ -20,6 +20,11 @@ export const MODES: Record<ModeId, ModeDefinition> = {
     name: 'Slip Mode',
     strategy: slipStrategy,
   },
+  redemption: {
+    id: 'redemption',
+    name: 'Redemption',
+    strategy: standardStrategy,
+  },
 };
 
 export function getModeDefinition(modeId: ModeId): ModeDefinition {
