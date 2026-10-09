@@ -125,7 +125,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
 
         <div className="review-header-stats">
           <span className="review-mode-badge">
-            {game.mode === 'slip' ? 'Slip Mode' : 'Standard'}
+            {game.mode === 'slip' ? 'Slip Mode' : game.mode === 'redemption' ? 'Redemption' : 'Standard'}
           </span>
           {isAnalyzing && (
             <div className="review-analyzing-badge">
@@ -293,6 +293,14 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
                           ) : (
                             <span className="pill good">—</span>
                           )}
+                          {m.redemption && (
+                            <span
+                              className={`redemption-indicator-pill ${m.redemption.outcome}`}
+                              title={`Redemption: ${m.redemption.outcome} (${m.redemption.puzzleRating} Elo)`}
+                            >
+                              {m.redemption.outcome === 'solved' ? '✨' : m.redemption.outcome === 'accepted' ? '⚡' : '✖'}
+                            </span>
+                          )}
                         </td>
                         <td className="col-eval font-mono font-bold">
                           {m.scoreDisplay ?? '—'}
@@ -311,6 +319,7 @@ export function ReviewScreen({ game, onBack }: ReviewScreenProps) {
       <ModeReviewExtras
         mode={game.mode}
         slipSummary={reviewModel.slipSummary}
+        redemptionSummary={reviewModel.redemptionSummary}
         onSelectPly={setSelectedPly}
         selectedPly={selectedPly}
       />

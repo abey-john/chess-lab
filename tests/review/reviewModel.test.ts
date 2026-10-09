@@ -412,4 +412,104 @@ describe('buildReviewModel', () => {
     console.log('PLY 5 (Qh5#) score:', qh5Move.score);
     expect(qh5Move.scoreDisplay).toBe('#');
   });
+
+  it('builds redemptionSummary with events, outcomes, and lives tracking', () => {
+    const redemptionGame: SavedGame = {
+      version: 1,
+      id: 'redemption-test-game',
+      mode: 'redemption',
+      startedAt: '2026-10-08T12:00:00Z',
+      config: {
+        mode: 'redemption',
+        playerColor: 'white',
+        elo: 1600,
+        botDelay: false,
+        lives: 3,
+      },
+      result: '0-1',
+      resultReason: 'Checkmate — Black wins',
+      pgn: '1. e4 e5 2. f4 exf4 3. g4 Qh4#',
+      tags: [
+        { ply: 1, fenBefore: 'start', san: 'e4', by: 'player' },
+        { ply: 2, fenBefore: 'fen1', san: 'e5', by: 'bot' },
+        { ply: 3, fenBefore: 'fen2', san: 'f4', by: 'player' },
+        { ply: 4, fenBefore: 'fen3', san: 'exf4', by: 'bot' },
+        {
+          ply: 5,
+          fenBefore: 'fen4',
+          san: 'g4',
+          by: 'player',
+          redemption: {
+            attempted: true,
+            outcome: 'failed',
+            puzzleId: 'puzzle_456',
+            puzzleRating: 1580,
+          },
+        },
+        { ply: 6, fenBefore: 'fen5', san: 'Qh4#', by: 'bot' },
+      ],
+      strategyState: {
+        livesRemaining: 2,
+        usedPuzzleIds: ['puzzle_123', 'puzzle_456'],
+        redemptionEvents: [
+          {
+            blunderPly: 3,
+            san: 'f4',
+            puzzleId: 'puzzle_123',
+            puzzleRating: 1620,
+            outcome: 'solved',
+            timeSpentMs: 4200,
+          },
+          {
+            blunderPly: 5,
+            san: 'g4',
+            puzzleId: 'puzzle_456',
+            puzzleRating: 1580,
+            outcome: 'failed',
+            timeSpentMs: 7800,
+          },
+        ],
+      },
+      analysis: [
+        { ply: 0, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 1, score: { kind: 'cp', value: -18 }, depth: 14 },
+        { ply: 2, score: { kind: 'cp', value: 20 }, depth: 14 },
+        { ply: 3, score: { kind: 'cp', value: -300 }, depth: 14 },
+        { ply: 4, score: { kind: 'cp', value: 300 }, depth: 14 },
+        { ply: 5, score: { kind: 'cp', value: -800 }, depth: 14 },
+        { ply: 6, score: { kind: 'mate', value: 0 }, depth: 14 },
+      ],
+    };
+
+    const model = buildReviewModel(redemptionGame);
+    expect(model.mode).toBe('redemption');
+    expect(model.redemptionSummary).toBeDefined();
+
+    const summary = model.redemptionSummary!;
+    expect(summary.startingLives).toBe(3);
+    expect(summary.livesRemaining).toBe(2);
+    expect(summary.totalBlunders).toBe(2);
+    expect(summary.solved).toBe(1);
+    expect(summary.failed).toBe(1);
+    expect(summary.accepted).toBe(0);
+    expect(summary.timedOut).toBe(0);
+    expect(summary.items).toHaveLength(2);
+
+    expect(summary.items[0].san).toBe('f4');
+    expect(summary.items[0].outcome).toBe('solved');
+    expect(summary.items[0].timeSpentMs).toBe(4200);
+
+    expect(summary.items[1].san).toBe('g4');
+    expect(summary.items[1].outcome).toBe('failed');
+    expect(summary.items[1].timeSpentMs).toBe(7800);
+
+    // Verify tag redemption attaches to classifiedMoves
+    const move5 = model.classifiedMoves.find((m) => m.ply === 5);
+    expect(move5?.redemption?.outcome).toBe('failed');
+    expect(move5?.redemption?.puzzleRating).toBe(1580);
+
+    // Verify evalGraphPoints has redemption marker info
+    const pt5 = model.evalGraphPoints.find((p) => p.ply === 5);
+    expect(pt5?.redemption?.outcome).toBe('failed');
+  });
 });

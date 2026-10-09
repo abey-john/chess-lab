@@ -1,9 +1,10 @@
 import type { ModeId } from '../../game/types';
-import type { SlipReviewSummary } from '../../review/reviewModel';
+import type { RedemptionReviewSummary, SlipReviewSummary } from '../../review/reviewModel';
 
 interface ModeReviewExtrasProps {
   mode: ModeId;
   slipSummary?: SlipReviewSummary;
+  redemptionSummary?: RedemptionReviewSummary;
   onSelectPly: (ply: number) => void;
   selectedPly?: number;
 }
@@ -11,9 +12,140 @@ interface ModeReviewExtrasProps {
 export function ModeReviewExtras({
   mode,
   slipSummary,
+  redemptionSummary,
   onSelectPly,
   selectedPly,
 }: ModeReviewExtrasProps) {
+  if (mode === 'redemption' && redemptionSummary) {
+    const {
+      totalBlunders,
+      solved,
+      accepted,
+      failed,
+      timedOut,
+      livesRemaining,
+      startingLives,
+      items,
+    } = redemptionSummary;
+
+    return (
+      <section className="redemption-review-card">
+        <div className="redemption-review-header">
+          <div className="redemption-review-title-group">
+            <h2 className="redemption-review-title">🔥 Redemption Mode Breakdown</h2>
+            <p className="redemption-review-subtitle">
+              Tactical puzzle QTEs triggered on player blunders and how you handled them.
+            </p>
+          </div>
+        </div>
+
+        <div className="redemption-stats-grid">
+          <div className="redemption-stat-box total">
+            <span className="stat-num">{totalBlunders}</span>
+            <span className="stat-label">Total Blunders</span>
+          </div>
+          <div className="redemption-stat-box solved">
+            <span className="stat-num">{solved}</span>
+            <span className="stat-label">Puzzles Solved ✨</span>
+            <span className="stat-desc">Blunder undone (0 lives lost)</span>
+          </div>
+          <div className="redemption-stat-box accepted">
+            <span className="stat-num">{accepted}</span>
+            <span className="stat-label">Accepted ⚡</span>
+            <span className="stat-desc">Saved lives (0 lives lost)</span>
+          </div>
+          <div className="redemption-stat-box failed">
+            <span className="stat-num">{failed + timedOut}</span>
+            <span className="stat-label">Failed / Timeout ✖</span>
+            <span className="stat-desc">1 life deducted each</span>
+          </div>
+          <div className="redemption-stat-box lives">
+            <span className="stat-num">
+              {livesRemaining === 'unlimited' ? '∞' : livesRemaining}
+            </span>
+            <span className="stat-label">Lives Remaining</span>
+            <span className="stat-desc">
+              {livesRemaining === 'unlimited' ? 'Unlimited mode' : `Started with ${startingLives}`}
+            </span>
+          </div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="redemption-empty-state">
+            No blunders were committed during this game! Clean play. 🎯
+          </div>
+        ) : (
+          <div className="redemption-table-wrapper">
+            <table className="redemption-table">
+              <thead>
+                <tr>
+                  <th className="col-ply">Move</th>
+                  <th className="col-elo">Puzzle ELO</th>
+                  <th className="col-outcome">Outcome</th>
+                  <th className="col-impact">Lives Impact</th>
+                  <th className="col-time">Time</th>
+                  <th className="col-action">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const isSelected = selectedPly === item.blunderPly;
+                  return (
+                    <tr
+                      key={item.blunderPly}
+                      className={`redemption-table-row ${isSelected ? 'active-redemption-row' : ''}`}
+                      onClick={() => onSelectPly(item.blunderPly)}
+                    >
+                      <td className="col-ply font-bold">
+                        {item.moveNumber}. {item.san}
+                      </td>
+                      <td className="col-elo font-mono font-bold">
+                        {item.puzzleRating}
+                      </td>
+                      <td className="col-outcome">
+                        <span className={`verdict-pill ${item.outcome}`}>
+                          {item.outcome === 'solved' && 'Solved ✨'}
+                          {item.outcome === 'accepted' && 'Accepted ⚡'}
+                          {item.outcome === 'failed' && 'Failed ✖'}
+                          {item.outcome === 'timeout' && 'Timeout ⏱'}
+                        </span>
+                      </td>
+                      <td className="col-impact">
+                        {item.outcome === 'solved' || item.outcome === 'accepted' ? (
+                          <span className="lives-impact zero">0 Lives</span>
+                        ) : (
+                          <span className="lives-impact lost">-1 Life</span>
+                        )}
+                      </td>
+                      <td className="col-time font-mono">
+                        {item.timeSpentMs !== undefined
+                          ? `${(item.timeSpentMs / 1000).toFixed(1)}s`
+                          : '—'}
+                      </td>
+                      <td className="col-action">
+                        <button
+                          type="button"
+                          className="redemption-jump-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectPly(item.blunderPly);
+                          }}
+                          title="Jump to position at blunder"
+                        >
+                          Inspect 🔍
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   if (mode !== 'slip' || !slipSummary) {
     return null;
   }

@@ -303,6 +303,7 @@ export const useGameStore = create<GameState>((set, get) => {
             resultReason: overState.reason,
             pgn: chess.pgn(),
             tags: updatedTags,
+            strategyState: get().strategyState,
           };
           saveGame(finishedGame);
           set({ activeReviewGame: finishedGame });
@@ -348,6 +349,7 @@ export const useGameStore = create<GameState>((set, get) => {
         resultReason,
         pgn: chess.pgn(),
         tags: get().tags,
+        strategyState: get().strategyState,
       };
       saveGame(finishedGame);
 
@@ -396,6 +398,7 @@ export const useGameStore = create<GameState>((set, get) => {
             resultReason: 'Draw agreed',
             pgn: chess.pgn(),
             tags: get().tags,
+            strategyState: get().strategyState,
           };
           saveGame(finishedGame);
 
@@ -620,6 +623,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const event: RedemptionEvent = {
         blunderPly: activeRedemption.blunderPly,
+        san: activeRedemption.blunderMove.san,
         puzzleId: activeRedemption.puzzle.id,
         puzzleRating: activeRedemption.puzzle.rating,
         outcome: 'accepted',
@@ -682,6 +686,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const event: RedemptionEvent = {
         blunderPly: activeRedemption.blunderPly,
+        san: activeRedemption.blunderMove.san,
         puzzleId: activeRedemption.puzzle.id,
         puzzleRating: activeRedemption.puzzle.rating,
         outcome: reason,
@@ -740,6 +745,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const event: RedemptionEvent = {
         blunderPly: activeRedemption.blunderPly,
+        san: activeRedemption.blunderMove.san,
         puzzleId: activeRedemption.puzzle.id,
         puzzleRating: activeRedemption.puzzle.rating,
         outcome: 'solved',

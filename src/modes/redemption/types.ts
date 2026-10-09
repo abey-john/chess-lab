@@ -20,6 +20,7 @@ export type RedemptionOutcome = 'solved' | 'accepted' | 'failed' | 'timeout';
 
 export interface RedemptionEvent {
   blunderPly: number;
+  san?: string;
   puzzleId: string;
   puzzleRating: number;
   outcome: RedemptionOutcome;

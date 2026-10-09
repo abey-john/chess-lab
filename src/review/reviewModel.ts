@@ -4,6 +4,7 @@ import { getQualityForDrop, type MoveClassification } from '../logic/classifyMov
 import { evalScoreToWhiteWinProb, evalScoreToWinProb, formatWhiteScore } from '../logic/winProb';
 import { classifyReply } from '../modes/slip/classifyReply';
 import type { ReplyVerdict, SlipTagData } from '../modes/slip/types';
+import type { RedemptionLives, RedemptionOutcome, RedemptionStrategyState, RedemptionTagData } from '../modes/redemption/types';
 
 export interface ClassifiedMove {
   ply: number;
@@ -19,6 +20,7 @@ export interface ClassifiedMove {
   score?: number; // In pawns, clamped [-10, 10] (+ for White, - for Black, 0 for even)
   scoreDisplay?: string; // Formatted score e.g. "+1.4", "-0.8", "0.0", "+M2", "-M1", "#"
   slip?: SlipTagData;
+  redemption?: RedemptionTagData;
 }
 
 export interface MoveSwing {
@@ -49,6 +51,7 @@ export interface ReviewGraphPoint {
   color?: Color;
   san?: string;
   slip?: SlipTagData;
+  redemption?: RedemptionTagData;
 }
 
 export interface SlipReviewItem {
@@ -76,6 +79,28 @@ export interface SlipReviewSummary {
   items: SlipReviewItem[];
 }
 
+export interface RedemptionReviewItem {
+  blunderPly: number;
+  moveNumber: number;
+  san: string;
+  puzzleId: string;
+  puzzleRating: number;
+  outcome: RedemptionOutcome;
+  timeSpentMs?: number;
+}
+
+export interface RedemptionReviewSummary {
+  startingLives: RedemptionLives;
+  livesRemaining: RedemptionLives | number;
+  totalBlunders: number;
+  puzzlesAttempted: number;
+  solved: number;
+  failed: number;
+  timedOut: number;
+  accepted: number;
+  items: RedemptionReviewItem[];
+}
+
 export interface ReviewModel {
   gameId: string;
   mode: string;
@@ -90,6 +115,7 @@ export interface ReviewModel {
   blackStats: SideStats;
   evalGraphPoints: ReviewGraphPoint[];
   slipSummary?: SlipReviewSummary;
+  redemptionSummary?: RedemptionReviewSummary;
 }
 
 /**
@@ -221,6 +247,7 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
       score,
       scoreDisplay,
       slip: tag.slip,
+      redemption: tag.redemption,
     });
 
     if (
@@ -240,6 +267,7 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
         color: moveColor,
         san: tag.san,
         slip: tag.slip,
+        redemption: tag.redemption,
       });
     }
   }
@@ -342,6 +370,76 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     };
   }
 
+  let redemptionSummary: RedemptionReviewSummary | undefined;
+  if (mode === 'redemption') {
+    const stratState = (savedGame.strategyState as RedemptionStrategyState) ?? {
+      livesRemaining: savedGame.config.mode === 'redemption' ? savedGame.config.lives : 3,
+      redemptionEvents: [],
+      usedPuzzleIds: [],
+    };
+
+    const startingLives = savedGame.config.mode === 'redemption' ? savedGame.config.lives : 3;
+    const items: RedemptionReviewItem[] = [];
+    let solved = 0;
+    let failed = 0;
+    let timedOut = 0;
+    let accepted = 0;
+
+    const processedPlies = new Set<number>();
+    for (const ev of stratState.redemptionEvents ?? []) {
+      processedPlies.add(ev.blunderPly);
+      const moveNumber = Math.floor((ev.blunderPly - 1) / 2) + 1;
+      const san = ev.san ?? tags.find((t) => t.ply === ev.blunderPly)?.san ?? `Ply ${ev.blunderPly}`;
+      if (ev.outcome === 'solved') solved++;
+      else if (ev.outcome === 'failed') failed++;
+      else if (ev.outcome === 'timeout') timedOut++;
+      else if (ev.outcome === 'accepted') accepted++;
+
+      items.push({
+        blunderPly: ev.blunderPly,
+        moveNumber,
+        san,
+        puzzleId: ev.puzzleId,
+        puzzleRating: ev.puzzleRating,
+        outcome: ev.outcome,
+        timeSpentMs: ev.timeSpentMs,
+      });
+    }
+
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (tag.redemption && !processedPlies.has(tag.ply)) {
+        processedPlies.add(tag.ply);
+        const moveNumber = Math.floor(i / 2) + 1;
+        if (tag.redemption.outcome === 'solved') solved++;
+        else if (tag.redemption.outcome === 'failed') failed++;
+        else if (tag.redemption.outcome === 'timeout') timedOut++;
+        else if (tag.redemption.outcome === 'accepted') accepted++;
+
+        items.push({
+          blunderPly: tag.ply,
+          moveNumber,
+          san: tag.san,
+          puzzleId: tag.redemption.puzzleId,
+          puzzleRating: tag.redemption.puzzleRating,
+          outcome: tag.redemption.outcome,
+        });
+      }
+    }
+
+    redemptionSummary = {
+      startingLives,
+      livesRemaining: stratState.livesRemaining,
+      totalBlunders: items.length,
+      puzzlesAttempted: solved + failed + timedOut,
+      solved,
+      failed,
+      timedOut,
+      accepted,
+      items,
+    };
+  }
+
   return {
     gameId: id,
     mode,
@@ -356,5 +454,6 @@ export function buildReviewModel(savedGame: SavedGame): ReviewModel {
     blackStats,
     evalGraphPoints,
     slipSummary,
+    redemptionSummary,
   };
 }

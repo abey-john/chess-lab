@@ -65,27 +65,30 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
   const selectedPoint = points.find((p) => p.ply === currentPly);
 
   const hasSlips = points.some((p) => p.slip !== undefined);
+  const hasRedemptions = points.some((p) => p.redemption !== undefined);
 
   const getReadoutText = (pt: ReviewGraphPoint) => {
     const movePrefix = pt.ply === 0 ? 'Start Position' : `Ply ${pt.ply}${pt.san ? ` (${pt.san})` : ''}`;
     const slipExtra = pt.slip ? ` · Bot Slip (${pt.slip.requestedSeverity})` : '';
+    const redemptionExtra = pt.redemption ? ` · Redemption (${pt.redemption.outcome})` : '';
+    const extra = `${slipExtra}${redemptionExtra}`;
 
     if (pt.scoreDisplay === '#' || pt.scoreDisplay.startsWith('+M')) {
       const mateText = pt.scoreDisplay === '#' ? '#' : pt.scoreDisplay.slice(1);
-      return `${movePrefix}: White ${mateText}${slipExtra}`;
+      return `${movePrefix}: White ${mateText}${extra}`;
     }
     if (pt.scoreDisplay === '-#' || pt.scoreDisplay.startsWith('-M')) {
       const mateText = pt.scoreDisplay === '-#' ? '#' : pt.scoreDisplay.slice(1);
-      return `${movePrefix}: Black ${mateText}${slipExtra}`;
+      return `${movePrefix}: Black ${mateText}${extra}`;
     }
     if (pt.score > 0) {
-      return `${movePrefix}: White ${pt.scoreDisplay}${slipExtra}`;
+      return `${movePrefix}: White ${pt.scoreDisplay}${extra}`;
     }
     if (pt.score < 0) {
       const positiveVal = Math.abs(pt.score).toFixed(1);
-      return `${movePrefix}: Black +${positiveVal}${slipExtra}`;
+      return `${movePrefix}: Black +${positiveVal}${extra}`;
     }
-    return `${movePrefix}: Equal 0.0${slipExtra}`;
+    return `${movePrefix}: Equal 0.0${extra}`;
   };
 
   return (
@@ -103,6 +106,11 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
           {hasSlips && (
             <span className="legend-item">
               <span className="legend-dot slip" /> Bot Slip
+            </span>
+          )}
+          {hasRedemptions && (
+            <span className="legend-item">
+              <span className="legend-dot redemption" /> Redemption
             </span>
           )}
           <span className="legend-item">
@@ -245,6 +253,11 @@ export function EvalGraph({ points, currentPly, onSelectPly }: EvalGraphProps) {
                   <polygon
                     points={`${cx},${cy - (isSelected ? 8.5 : 7)} ${cx + (isSelected ? 8.5 : 7)},${cy} ${cx},${cy + (isSelected ? 8.5 : 7)} ${cx - (isSelected ? 8.5 : 7)},${cy}`}
                     className="node-marker slip-marker"
+                  />
+                ) : pt.redemption ? (
+                  <polygon
+                    points={`${cx},${cy - (isSelected ? 8.5 : 7)} ${cx + (isSelected ? 8.5 : 7)},${cy} ${cx},${cy + (isSelected ? 8.5 : 7)} ${cx - (isSelected ? 8.5 : 7)},${cy}`}
+                    className={`node-marker redemption-marker ${pt.redemption.outcome}`}
                   />
                 ) : hasSevereQuality ? (
                   <circle

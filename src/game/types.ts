@@ -46,6 +46,7 @@ export interface SavedGame {
   pgn: string;
   tags: MoveTag[];
   analysis?: PositionEval[]; // cached once the review pass has run
+  strategyState?: unknown; // mode-specific strategy state (e.g. redemption events)
 }
 
 export interface InProgressGame {
