@@ -170,6 +170,43 @@ export class PuzzleSession {
     return this.failed;
   }
 
+  public getExpectedMove(): string | undefined {
+    return this.puzzle.solution[this.stepIndex]?.toLowerCase();
+  }
+
+  public getExpectedMoveDetails(): {
+    uci: string;
+    from: string;
+    to: string;
+    promotion?: string;
+    san: string;
+  } | undefined {
+    const uci = this.getExpectedMove();
+    if (!uci) return undefined;
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = uci.length > 4 ? uci.slice(4, 5) : undefined;
+    try {
+      const clone = new Chess(this.chess.fen());
+      const res = clone.move({ from: from as Square, to: to as Square, promotion });
+      return {
+        uci,
+        from,
+        to,
+        promotion,
+        san: res?.san ?? `${from}-${to}`,
+      };
+    } catch {
+      return {
+        uci,
+        from,
+        to,
+        promotion,
+        san: `${from}-${to}`,
+      };
+    }
+  }
+
   /**
    * Submit a player move. Input can be a UCI string e.g. "e2e4" or an object { from, to, promotion }.
    */

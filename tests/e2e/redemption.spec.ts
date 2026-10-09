@@ -230,5 +230,96 @@ test('Redemption puzzle board is fully interactive and playable', async ({ page 
   }
 });
 
+test('Redemption failure triggers arcade shake, failure banner, green solution arrow, and deducts life after delay', async ({ page }) => {
+  await page.goto('http://localhost:5173/chess-lab/');
+
+  const existingDiscard = page.locator('.resume-card .discard-btn');
+  if (await existingDiscard.isVisible()) {
+    await existingDiscard.click();
+  }
+
+  await page.locator('#mode-redemption-btn').click();
+  await page.getByRole('button', { name: /Start Game/i }).click();
+
+  await page.evaluate(() => {
+    (window as any).__gameStore.getState().triggerTestRedemption();
+  });
+
+  const modal = page.locator('.redemption-modal');
+  await expect(modal).toBeVisible();
+
+  await page.waitForTimeout(300);
+
+  const puzzleInfo = await page.evaluate(() => {
+    const store = (window as any).__gameStore.getState();
+    const active = store.activeRedemption;
+    const session = active?.session;
+    return {
+      playerColor: session?.getPlayerColor(),
+      expectedDetails: session?.getExpectedMoveDetails(),
+      dests: Array.from(session?.getChessInstance().moves({ verbose: true })),
+    };
+  });
+
+  expect(puzzleInfo.expectedDetails).toBeDefined();
+
+  // Find a legal move that is NOT the puzzle solution
+  const expectedUci = puzzleInfo.expectedDetails.uci;
+  const wrongMove = (puzzleInfo.dests as any[]).find((m: any) => `${m.from}${m.to}` !== expectedUci.slice(0, 4));
+  expect(wrongMove).toBeDefined();
+
+  const boardLocator = page.locator('.redemption-chessground cg-board');
+  const boardBox = await boardLocator.boundingBox();
+  expect(boardBox).not.toBeNull();
+
+  const isWhite = puzzleInfo.playerColor === 'white';
+  const fileToCol = (f: string) => isWhite ? (f.charCodeAt(0) - 97) : (7 - (f.charCodeAt(0) - 97));
+  const rankToRow = (r: string) => isWhite ? (8 - parseInt(r, 10)) : (parseInt(r, 10) - 1);
+  const sqSize = boardBox!.width / 8;
+
+  const fromX = boardBox!.x + (fileToCol(wrongMove.from[0]) + 0.5) * sqSize;
+  const fromY = boardBox!.y + (rankToRow(wrongMove.from[1]) + 0.5) * sqSize;
+  const toX = boardBox!.x + (fileToCol(wrongMove.to[0]) + 0.5) * sqSize;
+  const toY = boardBox!.y + (rankToRow(wrongMove.to[1]) + 0.5) * sqSize;
+
+  // Play wrong move
+  await page.mouse.move(fromX, fromY);
+  await page.mouse.down();
+  await page.waitForTimeout(50);
+  await page.mouse.move(toX, toY, { steps: 8 });
+  await page.waitForTimeout(50);
+  await page.mouse.up();
+
+  // Verify failure feedback appears immediately
+  // 1. Board shake
+  await expect(page.locator('.redemption-board-wrapper')).toHaveClass(/board-shake/);
+
+  // 2. Modal failed class
+  await expect(modal).toHaveClass(/qte-failed/);
+
+  // 3. Failure banner with "INCORRECT MOVE" and best move chip
+  const failureBanner = page.locator('#redemption-failure-banner');
+  await expect(failureBanner).toBeVisible();
+  await expect(failureBanner).toContainText('INCORRECT MOVE');
+  await expect(failureBanner).toContainText('1 Life Lost');
+  await expect(failureBanner.locator('.best-move-chip')).toHaveText(puzzleInfo.expectedDetails.san);
+
+  // 4. Accept Blunder button is disabled
+  await expect(page.locator('#accept-blunder-btn')).toBeDisabled();
+
+  // 5. Green arrow shape exists in Chessground SVG
+  await expect(page.locator('.redemption-chessground svg.cg-shapes line')).toBeVisible();
+
+  // Take screenshot of failure state
+  await page.screenshot({ path: 'tests/e2e/redemption_qte_failure.png' });
+
+  // 6. After 1.2s delay, modal automatically dismisses and 1 life is lost
+  await expect(modal).not.toBeVisible({ timeout: 3000 });
+
+  // Verify lives remaining decreased to 2 (❤️❤️)
+  await expect(page.locator('.redemption-lives-badge')).toContainText('❤️❤️');
+});
+
+
 
 

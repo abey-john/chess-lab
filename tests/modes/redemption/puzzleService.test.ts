@@ -137,6 +137,17 @@ describe('puzzleService', () => {
       expect(res.isComplete).toBe(true);
     });
 
+    it('provides expected move details for player steps', () => {
+      const session = new PuzzleSession(singleMovePuzzle);
+      expect(session.getExpectedMove()).toBe('a1a8');
+      const details = session.getExpectedMoveDetails();
+      expect(details).toBeDefined();
+      expect(details?.uci).toBe('a1a8');
+      expect(details?.from).toBe('a1');
+      expect(details?.to).toBe('a8');
+      expect(details?.san).toBe('Ra8+');
+    });
+
     it('fails session when incorrect move is played', () => {
       const session = new PuzzleSession(singleMovePuzzle);
       const res = session.submitMove('a1b1');

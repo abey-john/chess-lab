@@ -16,38 +16,109 @@ export function RedemptionModal() {
   const acceptBlunder = useGameStore((s) => s.acceptBlunder);
   const submitRedemptionMove = useGameStore((s) => s.submitRedemptionMove);
   const tickRedemptionTimer = useGameStore((s) => s.tickRedemptionTimer);
+  const failRedemption = useGameStore((s) => s.failRedemption);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
 
   const [timeLeftMs, setTimeLeftMs] = useState(TOTAL_TIME_MS);
+  const timeLeftMsRef = useRef(timeLeftMs);
+  timeLeftMsRef.current = timeLeftMs;
+
   const [feedback, setFeedback] = useState<{
     type: 'idle' | 'success' | 'failure' | 'step';
     message: string;
   }>({ type: 'idle', message: '' });
 
+  const [isFailed, setIsFailed] = useState(false);
+  const [failureReason, setFailureReason] = useState<'failed' | 'timeout' | null>(null);
+  const [bestMoveSan, setBestMoveSan] = useState<string | null>(null);
+  const [shakeBoard, setShakeBoard] = useState(false);
+
+  const failureHandledRef = useRef(false);
+  const failureTimerRef = useRef<number | null>(null);
+
+  // Trigger failure sequence (shake, red glow, green arrow reveal, 1.2s hold)
+  const triggerFailure = (reason: 'failed' | 'timeout') => {
+    if (failureHandledRef.current || !activeRedemption) return;
+    failureHandledRef.current = true;
+
+    const session = activeRedemption.session;
+    const playerColor = session.getPlayerColor();
+    const expected = session.getExpectedMoveDetails();
+
+    setIsFailed(true);
+    setFailureReason(reason);
+    if (expected?.san) {
+      setBestMoveSan(expected.san);
+    }
+    setShakeBoard(true);
+
+    if (reason === 'failed') {
+      tickRedemptionTimer(timeLeftMsRef.current);
+    }
+
+    if (apiRef.current) {
+      const api = apiRef.current;
+      api.cancelMove();
+      api.set({
+        fen: session.getFen(),
+        turnColor: playerColor,
+        movable: {
+          color: undefined,
+          dests: new Map(),
+          showDests: false,
+        },
+        draggable: {
+          enabled: false,
+        },
+      });
+
+      if (expected) {
+        api.setAutoShapes([
+          {
+            orig: expected.from as Key,
+            dest: expected.to as Key,
+            brush: 'green',
+          },
+        ]);
+      }
+      api.redrawAll();
+    }
+
+    failureTimerRef.current = window.setTimeout(() => {
+      failRedemption(reason);
+    }, 1200);
+  };
+
+  // Cleanup failure timer on unmount
+  useEffect(() => {
+    return () => {
+      if (failureTimerRef.current !== null) {
+        clearTimeout(failureTimerRef.current);
+      }
+    };
+  }, []);
+
   // 15-second countdown timer
   useEffect(() => {
-    if (!activeRedemption || activeRedemption.status !== 'active') return;
+    if (!activeRedemption || activeRedemption.status !== 'active' || isFailed) return;
 
     const startTime = Date.now();
+    const startRemaining = timeLeftMs;
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, TOTAL_TIME_MS - elapsed);
+      const remaining = Math.max(0, startRemaining - elapsed);
       setTimeLeftMs(remaining);
 
       if (remaining <= 0) {
         clearInterval(interval);
-        setFeedback({
-          type: 'failure',
-          message: 'Time expired! 1 Life Lost',
-        });
-        tickRedemptionTimer(0);
+        triggerFailure('timeout');
       }
     }, 50);
 
     return () => clearInterval(interval);
-  }, [activeRedemption?.puzzle.id, activeRedemption?.status, tickRedemptionTimer]);
+  }, [activeRedemption?.puzzle.id, activeRedemption?.status, isFailed]);
 
   // Initialize and manage the puzzle Chessground board
   useEffect(() => {
@@ -81,18 +152,22 @@ export function RedemptionModal() {
         showDests: true,
         events: {
           after: (orig, dest) => {
+            if (failureHandledRef.current) return;
+
             const currentChess = session.getChessInstance();
             const promotion = isPromotionMove(currentChess, orig, dest) ? 'q' : undefined;
+            const uciMove = `${orig}${dest}${promotion ?? ''}`.toLowerCase();
+            const expected = session.getExpectedMoveDetails();
+
+            if (!expected || uciMove !== expected.uci) {
+              triggerFailure('failed');
+              return;
+            }
 
             const res = submitRedemptionMove({ from: orig, to: dest, promotion });
             if (!res) return;
 
-            if (!res.success) {
-              setFeedback({
-                type: 'failure',
-                message: 'Incorrect Move! 1 Life Lost',
-              });
-            } else if (res.isComplete) {
+            if (res.isComplete) {
               setFeedback({
                 type: 'success',
                 message: 'Puzzle Solved! Blunder Undone!',
@@ -131,6 +206,13 @@ export function RedemptionModal() {
       },
       selectable: {
         enabled: true,
+      },
+      drawable: {
+        enabled: false,
+        visible: true,
+        brushes: {
+          green: { key: 'g', color: '#22c55e', opacity: 0.95, lineWidth: 10 },
+        },
       },
     });
 
@@ -180,7 +262,11 @@ export function RedemptionModal() {
 
   return (
     <div className="redemption-overlay" id="redemption-modal-overlay">
-      <div className="redemption-modal" role="dialog" aria-labelledby="redemption-title">
+      <div
+        className={`redemption-modal ${isFailed ? 'qte-failed' : ''}`}
+        role="dialog"
+        aria-labelledby="redemption-title"
+      >
         {/* Arcade Alert Header */}
         <div className="redemption-header">
           <div className="redemption-badge-row">
@@ -199,41 +285,74 @@ export function RedemptionModal() {
         <div className="redemption-timer-card">
           <div className="timer-header">
             <span className="timer-label">Time Remaining</span>
-            <span className={`timer-readout ${timerColorClass}`}>{seconds}s</span>
+            <span
+              className={`timer-readout ${
+                isFailed && failureReason === 'timeout' ? 'timer-red' : timerColorClass
+              }`}
+            >
+              {isFailed && failureReason === 'timeout' ? '0.0s' : `${seconds}s`}
+            </span>
           </div>
           <div className="timer-bar-track">
             <div
-              className={`timer-bar-fill ${timerColorClass}`}
-              style={{ width: `${progressPercent}%` }}
+              className={`timer-bar-fill ${
+                isFailed && failureReason === 'timeout' ? 'timer-red' : timerColorClass
+              }`}
+              style={{
+                width: `${isFailed && failureReason === 'timeout' ? 0 : progressPercent}%`,
+              }}
             />
           </div>
         </div>
 
-        {/* Turn & Objective Banner */}
-        <div className={`redemption-turn-banner turn-${playerColor}`}>
-          <div className="turn-banner-left">
-            <span className={`turn-color-indicator ${playerColor}`} />
-            <span className="turn-banner-text">
-              <strong>{playerColor === 'white' ? 'White' : 'Black'} to move</strong>
-              <span className="turn-banner-sub"> — Find the tactic to undo blunder</span>
+        {/* Turn & Objective Banner / Failure Reveal Banner */}
+        {isFailed ? (
+          <div
+            className="redemption-turn-banner turn-failed"
+            id="redemption-failure-banner"
+          >
+            <div className="turn-banner-left">
+              <span className="turn-color-indicator failed" />
+              <div className="turn-banner-failed-details">
+                <strong className="failure-headline">
+                  {failureReason === 'timeout' ? '⏱️ TIME EXPIRED' : '❌ INCORRECT MOVE'}
+                  <span className="failure-life-tag"> — 1 Life Lost</span>
+                </strong>
+                {bestMoveSan && (
+                  <div className="failure-best-move-hint">
+                    Best move was <span className="best-move-chip">{bestMoveSan}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <span className="turn-move-count failed-count">Failed</span>
+          </div>
+        ) : (
+          <div className={`redemption-turn-banner turn-${playerColor}`}>
+            <div className="turn-banner-left">
+              <span className={`turn-color-indicator ${playerColor}`} />
+              <span className="turn-banner-text">
+                <strong>{playerColor === 'white' ? 'White' : 'Black'} to move</strong>
+                <span className="turn-banner-sub"> — Find the tactic to undo blunder</span>
+              </span>
+            </div>
+            <span className="turn-move-count">
+              {activeRedemption.puzzle.solution.length === 1
+                ? '1 move'
+                : `${Math.ceil(activeRedemption.puzzle.solution.length / 2)} moves`}
             </span>
           </div>
-          <span className="turn-move-count">
-            {activeRedemption.puzzle.solution.length === 1
-              ? '1 move'
-              : `${Math.ceil(activeRedemption.puzzle.solution.length / 2)} moves`}
-          </span>
-        </div>
+        )}
 
-        {/* Feedback Message */}
-        {feedback.message && (
+        {/* Feedback Message (when solving or intermediate steps) */}
+        {!isFailed && feedback.message && (
           <div className={`redemption-feedback feedback-${feedback.type}`}>
             {feedback.message}
           </div>
         )}
 
         {/* Interactive Puzzle Chessboard */}
-        <div className="redemption-board-wrapper">
+        <div className={`redemption-board-wrapper ${shakeBoard ? 'board-shake' : ''}`}>
           <div ref={containerRef} className="chessground-container redemption-chessground" />
         </div>
 
@@ -265,7 +384,12 @@ export function RedemptionModal() {
             id="accept-blunder-btn"
             className="action-btn accept-blunder-btn"
             onClick={acceptBlunder}
-            title="Accept blunder and save your lives (0 lives deducted)"
+            disabled={isFailed}
+            title={
+              isFailed
+                ? 'QTE failed'
+                : 'Accept blunder and save your lives (0 lives deducted)'
+            }
           >
             Accept Blunder
             <span className="btn-subtext">(0 Lives Lost)</span>
