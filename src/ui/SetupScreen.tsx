@@ -194,6 +194,31 @@ export function SetupScreen() {
                 Redemption
               </button>
             </div>
+
+            <div className="mode-blurb-card">
+              <span className="mode-blurb-icon">
+                {mode === 'standard' && '♟'}
+                {mode === 'slip' && '🎯'}
+                {mode === 'redemption' && '⚡'}
+              </span>
+              <p className="mode-blurb-text">
+                {mode === 'standard' && (
+                  <>
+                    <strong className="mode-blurb-title">Standard Chess:</strong> Classic match against Stockfish at your selected ELO. Pure chess with complete post-game analysis.
+                  </>
+                )}
+                {mode === 'slip' && (
+                  <>
+                    <strong className="mode-blurb-title">Slip Mode:</strong> Even Stockfish can slip up every now and then. Spot the mistakes and punish it!
+                  </>
+                )}
+                {mode === 'redemption' && (
+                  <>
+                    <strong className="mode-blurb-title">Redemption:</strong> Blunders trigger a quicktime event chess puzzle. Solve it to undo your move!
+                  </>
+                )}
+              </p>
+            </div>
           </div>
 
           {mode === 'redemption' && (

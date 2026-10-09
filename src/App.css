@@ -725,6 +725,36 @@
   box-shadow: 0 4px 12px var(--accent-glow);
 }
 
+.mode-blurb-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 4px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.mode-blurb-icon {
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.mode-blurb-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.mode-blurb-title {
+  color: var(--text-primary);
+  margin-right: 4px;
+}
+
 .slip-options-group {
   display: flex;
   flex-direction: column;
