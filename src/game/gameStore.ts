@@ -136,7 +136,7 @@ async function checkAndTriggerRedemption(
 
     if (result.isBlunder) {
       const excludeSet = new Set(stratState.usedPuzzleIds);
-      const puzzle = getPuzzleForElo(curr.config.elo, excludeSet);
+      const puzzle = getPuzzleForElo(curr.config.elo, excludeSet, curr.config.playerColor);
       const session = new PuzzleSession(puzzle);
 
       const updatedStratState: RedemptionStrategyState = {
@@ -830,7 +830,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
     triggerTestRedemption: () => {
       const { config, history } = get();
-      const puzzle = getPuzzleForElo(config.elo);
+      const puzzle = getPuzzleForElo(config.elo, undefined, config.playerColor);
       const session = new PuzzleSession(puzzle);
       const moveRecord = history[history.length - 1] ?? {
         ply: 1,

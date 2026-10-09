@@ -68,7 +68,7 @@ export function RedemptionModal() {
       turnColor: playerColor,
       animation: {
         enabled: true,
-        duration: 200,
+        duration: 150,
       },
       highlight: {
         lastMove: true,
@@ -78,6 +78,7 @@ export function RedemptionModal() {
         free: false,
         color: playerColor,
         dests: cgDests,
+        showDests: true,
         events: {
           after: (orig, dest) => {
             const currentChess = session.getChessInstance();
@@ -117,23 +118,49 @@ export function RedemptionModal() {
                 movable: {
                   color: playerColor,
                   dests: nextDests,
+                  showDests: true,
                 },
               });
             }
           },
         },
       },
+      draggable: {
+        enabled: true,
+        showGhost: true,
+      },
+      selectable: {
+        enabled: true,
+      },
     });
 
     apiRef.current = api;
 
+    // Ensure Chessground layout and hitboxes are pixel-perfect immediately and during animations
+    requestAnimationFrame(() => {
+      api.redrawAll();
+    });
+    const t1 = setTimeout(() => api.redrawAll(), 50);
+    const t2 = setTimeout(() => api.redrawAll(), 250);
+
+    const resizeObserver = new ResizeObserver(() => {
+      api.redrawAll();
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      resizeObserver.disconnect();
       api.destroy();
       apiRef.current = null;
     };
   }, [activeRedemption?.puzzle.id, submitRedemptionMove]);
 
   if (!activeRedemption) return null;
+
+  const session = activeRedemption.session;
+  const playerColor = session.getPlayerColor();
 
   const seconds = (timeLeftMs / 1000).toFixed(1);
   const progressPercent = Math.max(0, Math.min(100, (timeLeftMs / TOTAL_TIME_MS) * 100));
@@ -180,6 +207,22 @@ export function RedemptionModal() {
               style={{ width: `${progressPercent}%` }}
             />
           </div>
+        </div>
+
+        {/* Turn & Objective Banner */}
+        <div className={`redemption-turn-banner turn-${playerColor}`}>
+          <div className="turn-banner-left">
+            <span className={`turn-color-indicator ${playerColor}`} />
+            <span className="turn-banner-text">
+              <strong>{playerColor === 'white' ? 'White' : 'Black'} to move</strong>
+              <span className="turn-banner-sub"> — Find the tactic to undo blunder</span>
+            </span>
+          </div>
+          <span className="turn-move-count">
+            {activeRedemption.puzzle.solution.length === 1
+              ? '1 move'
+              : `${Math.ceil(activeRedemption.puzzle.solution.length / 2)} moves`}
+          </span>
         </div>
 
         {/* Feedback Message */}

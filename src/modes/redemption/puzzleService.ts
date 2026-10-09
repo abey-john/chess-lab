@@ -26,12 +26,27 @@ export function getPuzzleById(id: string): ChessPuzzle | undefined {
 }
 
 /**
- * Selects an appropriate puzzle for a given bot ELO.
+ * Determines the color of the puzzle solver based on puzzle FEN.
+ * If FEN active color is 'b', opponent plays initialMove as Black, so White is the solver.
+ */
+export function getPuzzleSolverColor(puzzle: ChessPuzzle): 'white' | 'black' {
+  const parts = puzzle.fen.split(' ');
+  // If FEN active color is 'b', opponent plays initialMove as Black, so White is the solver
+  return parts[1] === 'b' ? 'white' : 'black';
+}
+
+/**
+ * Retrieves an appropriately rated puzzle for the player's Elo.
  * Tries to find a puzzle within +/- 150 of targetElo that hasn't been excluded.
+ * If preferredColor is provided, prioritizes puzzles matching the player's color.
  * If none found in that window, falls back to the closest puzzle by rating difference.
  * If all puzzles are excluded, resets exclusion and finds the closest puzzle.
  */
-export function getPuzzleForElo(targetElo: number, excludeIds?: Set<string>): ChessPuzzle {
+export function getPuzzleForElo(
+  targetElo: number,
+  excludeIds?: Set<string>,
+  preferredColor?: 'white' | 'black'
+): ChessPuzzle {
   if (ALL_PUZZLES.length === 0) {
     throw new Error('No puzzles available in puzzle database');
   }
@@ -44,6 +59,14 @@ export function getPuzzleForElo(targetElo: number, excludeIds?: Set<string>): Ch
   if (pool.length === 0) {
     // If every puzzle was seen/excluded, reset pool
     pool = ALL_PUZZLES;
+  }
+
+  // If a preferred solver color is requested, prioritize matching puzzles
+  if (preferredColor) {
+    const colorMatched = pool.filter((p) => getPuzzleSolverColor(p) === preferredColor);
+    if (colorMatched.length > 0) {
+      pool = colorMatched;
+    }
   }
 
   // Look for puzzles within +/- 150 Elo

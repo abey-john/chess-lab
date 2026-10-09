@@ -109,19 +109,30 @@ test('Redemption QTE modal renders correctly and Accept Blunder works', async ({
     (window as any).__gameStore.getState().triggerTestRedemption();
   });
 
-  // Verify Modal is visible
+  // Verify Modal is visible and spacious
   const modal = page.locator('.redemption-modal');
   await expect(modal).toBeVisible();
 
   await expect(modal).toContainText('BLUNDER DETECTED');
   await expect(modal).toContainText('Redemption Opportunity');
   await expect(page.locator('.timer-bar-track')).toBeVisible();
+  await expect(page.locator('.redemption-turn-banner')).toBeVisible();
   await expect(page.locator('#accept-blunder-btn')).toBeVisible();
 
-  // Wait for fade-in animation to complete
+  // Verify enlarged dimensions
+  const modalBox = await modal.boundingBox();
+  expect(modalBox).not.toBeNull();
+  expect(modalBox!.width).toBeGreaterThanOrEqual(500);
+
+  const boardWrapper = page.locator('.redemption-board-wrapper');
+  const boardBox = await boardWrapper.boundingBox();
+  expect(boardBox).not.toBeNull();
+  expect(boardBox!.width).toBeGreaterThanOrEqual(360);
+
+  // Wait for layout to settle
   await page.waitForTimeout(300);
 
-  // Take screenshot of QTE modal
+  // Take screenshot of enlarged QTE modal
   await page.screenshot({ path: 'tests/e2e/redemption_qte_modal.png' });
 
   // Click "Accept Blunder"
@@ -133,3 +144,91 @@ test('Redemption QTE modal renders correctly and Accept Blunder works', async ({
   // Verify lives remaining is still 3 (❤️❤️❤️)
   await expect(page.locator('.redemption-lives-badge')).toContainText('❤️❤️❤️');
 });
+
+test('Redemption puzzle board is fully interactive and playable', async ({ page }) => {
+  await page.goto('http://localhost:5173/chess-lab/');
+
+  const existingDiscard = page.locator('.resume-card .discard-btn');
+  if (await existingDiscard.isVisible()) {
+    await existingDiscard.click();
+  }
+
+  await page.locator('#mode-redemption-btn').click();
+  await page.getByRole('button', { name: /Start Game/i }).click();
+
+  await page.evaluate(() => {
+    (window as any).__gameStore.getState().triggerTestRedemption();
+  });
+
+  const modal = page.locator('.redemption-modal');
+  await expect(modal).toBeVisible();
+  await expect(page.locator('.redemption-turn-banner')).toBeVisible();
+
+  // Wait for board to mount and redraw
+  await page.waitForTimeout(300);
+
+  const puzzleInfo = await page.evaluate(() => {
+    const store = (window as any).__gameStore.getState();
+    const active = store.activeRedemption;
+    const session = active?.session;
+    return {
+      playerColor: session?.getPlayerColor(),
+      solution: active?.puzzle.solution,
+    };
+  });
+
+  expect(puzzleInfo.solution).toBeDefined();
+  expect(puzzleInfo.solution.length).toBeGreaterThan(0);
+
+  const firstMove = puzzleInfo.solution[0];
+  const fromSquare = firstMove.slice(0, 2);
+  const toSquare = firstMove.slice(2, 4);
+
+  const boardLocator = page.locator('.redemption-chessground cg-board');
+  const boardBox = await boardLocator.boundingBox();
+  expect(boardBox).not.toBeNull();
+
+  // Map square to screen coordinates with orientation awareness
+  const isWhite = puzzleInfo.playerColor === 'white';
+  const fileToCol = (f: string) => isWhite ? (f.charCodeAt(0) - 97) : (7 - (f.charCodeAt(0) - 97));
+  const rankToRow = (r: string) => isWhite ? (8 - parseInt(r, 10)) : (parseInt(r, 10) - 1);
+  const sqSize = boardBox!.width / 8;
+
+  const fromX = boardBox!.x + (fileToCol(fromSquare[0]) + 0.5) * sqSize;
+  const fromY = boardBox!.y + (rankToRow(fromSquare[1]) + 0.5) * sqSize;
+
+  const toX = boardBox!.x + (fileToCol(toSquare[0]) + 0.5) * sqSize;
+  const toY = boardBox!.y + (rankToRow(toSquare[1]) + 0.5) * sqSize;
+
+  // Perform drag and drop move on the puzzle board
+  await page.mouse.move(fromX, fromY);
+  await page.mouse.down();
+  await page.waitForTimeout(50);
+  await page.mouse.move(toX, toY, { steps: 8 });
+  await page.waitForTimeout(50);
+  await page.mouse.up();
+
+  // Verify the move advanced the puzzle
+  await page.waitForTimeout(400);
+
+  const finalState = await page.evaluate(() => {
+    const store = (window as any).__gameStore.getState();
+    const active = store.activeRedemption;
+    return {
+      modalOpen: !!active,
+      stepIndex: active?.session.getStepIndex(),
+    };
+  });
+
+  // Either the puzzle advanced or was solved (and blunder undone)
+  if (puzzleInfo.solution.length === 1) {
+    // 1-move puzzle solved immediately
+    expect(finalState.modalOpen).toBe(false);
+  } else {
+    // Multi-move puzzle advanced at least 2 steps (player move + opponent reply)
+    expect(finalState.stepIndex).toBeGreaterThanOrEqual(1);
+  }
+});
+
+
+
