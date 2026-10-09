@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../game/gameStore';
 import type { Color, InProgressGame, ModeId, SavedGame } from '../game/types';
+import type { RedemptionLives } from '../modes/redemption/types';
 import type { Frequency, SeverityChoice } from '../modes/slip/types';
 import { ELO_MAX, ELO_MIN } from '../logic/config';
 import { clearSavedGames, deleteSavedGame, loadSavedGames } from '../storage/savedGames';
@@ -20,6 +21,7 @@ export function SetupScreen() {
   const [mode, setMode] = useState<ModeId>('standard');
   const [severity, setSeverity] = useState<SeverityChoice>('mixed');
   const [frequency, setFrequency] = useState<Frequency>('sometimes');
+  const [redemptionLives, setRedemptionLives] = useState<RedemptionLives>(3);
   const [colorChoice, setColorChoice] = useState<ColorChoice>('white');
   const [elo, setElo] = useState<number>(1500);
   const [inProgress, setInProgress] = useState<InProgressGame | null>(() => loadInProgress());
@@ -34,7 +36,15 @@ export function SetupScreen() {
     const playerColor: Color =
       colorChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : colorChoice;
 
-    if (mode === 'slip') {
+    if (mode === 'redemption') {
+      startGame({
+        mode: 'redemption',
+        playerColor,
+        elo,
+        botDelay: true,
+        lives: redemptionLives,
+      });
+    } else if (mode === 'slip') {
       startGame({
         mode: 'slip',
         playerColor,
@@ -101,7 +111,13 @@ export function SetupScreen() {
             <div className="resume-body">
               <div className="resume-stat">
                 <span className="stat-label">Mode:</span>
-                <span className="stat-value">{inProgress.mode === 'slip' ? 'Slip Mode' : 'Standard'}</span>
+                <span className="stat-value">
+                  {inProgress.mode === 'slip'
+                    ? 'Slip Mode'
+                    : inProgress.mode === 'redemption'
+                      ? 'Redemption'
+                      : 'Standard'}
+                </span>
               </div>
               {inProgress.config.mode === 'slip' && (
                 <>
@@ -114,6 +130,14 @@ export function SetupScreen() {
                     <span className="stat-value capitalize">{inProgress.config.frequency}</span>
                   </div>
                 </>
+              )}
+              {inProgress.config.mode === 'redemption' && (
+                <div className="resume-stat">
+                  <span className="stat-label">Lives:</span>
+                  <span className="stat-value capitalize">
+                    {inProgress.config.lives === 'unlimited' ? 'Unlimited' : `${inProgress.config.lives}`}
+                  </span>
+                </div>
               )}
               <div className="resume-stat">
                 <span className="stat-label">Playing As:</span>
@@ -148,6 +172,7 @@ export function SetupScreen() {
               <button
                 className={`mode-btn ${mode === 'standard' ? 'active' : ''}`}
                 type="button"
+                id="mode-standard-btn"
                 onClick={() => setMode('standard')}
               >
                 Standard Chess
@@ -155,12 +180,62 @@ export function SetupScreen() {
               <button
                 className={`mode-btn ${mode === 'slip' ? 'active' : ''}`}
                 type="button"
+                id="mode-slip-btn"
                 onClick={() => setMode('slip')}
               >
                 Slip Mode
               </button>
+              <button
+                className={`mode-btn ${mode === 'redemption' ? 'active' : ''}`}
+                type="button"
+                id="mode-redemption-btn"
+                onClick={() => setMode('redemption')}
+              >
+                Redemption
+              </button>
             </div>
           </div>
+
+          {mode === 'redemption' && (
+            <div className="redemption-options-group">
+              <div className="setup-group">
+                <div className="group-header-with-value">
+                  <label className="group-label">Redemption Lives</label>
+                  <span className="group-hint">
+                    {redemptionLives === 1 && 'Hardcore: 1 redo chance'}
+                    {redemptionLives === 3 && 'Standard: 3 redo chances'}
+                    {redemptionLives === 'unlimited' && 'Casual / Training: Unlimited redos'}
+                  </span>
+                </div>
+                <div className="segmented-selector">
+                  <button
+                    type="button"
+                    id="lives-1-btn"
+                    className={`segment-btn ${redemptionLives === 1 ? 'active' : ''}`}
+                    onClick={() => setRedemptionLives(1)}
+                  >
+                    1 Life
+                  </button>
+                  <button
+                    type="button"
+                    id="lives-3-btn"
+                    className={`segment-btn ${redemptionLives === 3 ? 'active' : ''}`}
+                    onClick={() => setRedemptionLives(3)}
+                  >
+                    3 Lives
+                  </button>
+                  <button
+                    type="button"
+                    id="lives-unlimited-btn"
+                    className={`segment-btn ${redemptionLives === 'unlimited' ? 'active' : ''}`}
+                    onClick={() => setRedemptionLives('unlimited')}
+                  >
+                    Unlimited
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {mode === 'slip' && (
             <div className="slip-options-group">
@@ -319,7 +394,7 @@ export function SetupScreen() {
                     <span className="past-game-result">{g.result}</span>
                     <div className="past-game-meta">
                       <span className="past-game-desc">
-                        vs Stockfish ({g.config.mode === 'slip' ? 'Slip Mode · ' : ''}{g.config.elo} Elo) — {g.tags.length} plies
+                        vs Stockfish ({g.config.mode === 'slip' ? 'Slip Mode · ' : g.config.mode === 'redemption' ? 'Redemption · ' : ''}{g.config.elo} Elo) — {g.tags.length} plies
                       </span>
                       <span className="past-game-date">
                         {new Date(g.startedAt).toLocaleDateString()}

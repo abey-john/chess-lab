@@ -1,8 +1,10 @@
 import { useGameStore } from '../game/gameStore';
+import type { RedemptionStrategyState } from '../modes/redemption/types';
 import { Board } from './components/Board';
 import { GameOverBanner } from './components/GameOverBanner';
 import { KnightIcon } from './components/KnightIcon';
 import { MoveList } from './components/MoveList';
+import { RedemptionModal } from './components/RedemptionModal';
 
 export function GameScreen() {
   const turn = useGameStore((s) => s.turn);
@@ -17,6 +19,8 @@ export function GameScreen() {
   const resetGame = useGameStore((s) => s.resetGame);
   const goToSetup = useGameStore((s) => s.goToSetup);
   const offerDraw = useGameStore((s) => s.offerDraw);
+  const activeRedemption = useGameStore((s) => s.activeRedemption);
+  const strategyState = useGameStore((s) => s.strategyState) as RedemptionStrategyState | undefined;
 
   return (
     <div className="game-screen">
@@ -62,6 +66,7 @@ export function GameScreen() {
       </header>
 
       <GameOverBanner />
+      {activeRedemption && <RedemptionModal />}
 
       <main className="game-layout">
         <section className="board-section">
@@ -74,6 +79,16 @@ export function GameScreen() {
               <span className="info-label">Mode</span>
               <span className="info-value capitalize">{config.mode}</span>
             </div>
+            {config.mode === 'redemption' && (
+              <div className="info-row">
+                <span className="info-label">Lives</span>
+                <span className="info-value redemption-lives-badge">
+                  {strategyState?.livesRemaining === 'unlimited'
+                    ? '∞ Unlimited'
+                    : '❤️'.repeat(Math.max(0, Number(strategyState?.livesRemaining ?? (config as any).lives ?? 3))) || '0 (Exhausted)'}
+                </span>
+              </div>
+            )}
             <div className="info-row">
               <span className="info-label">Opponent</span>
               <span className="info-value">Stockfish ({config.elo} Elo)</span>

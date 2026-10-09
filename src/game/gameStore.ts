@@ -87,6 +87,7 @@ export interface GameState {
     move: string | { from: string; to: string; promotion?: string }
   ) => PuzzleMoveResult | null;
   tickRedemptionTimer: (remainingMs: number) => void;
+  triggerTestRedemption: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -820,5 +821,34 @@ export const useGameStore = create<GameState>((set, get) => {
         },
       });
     },
+
+    triggerTestRedemption: () => {
+      const { config, history } = get();
+      const puzzle = getPuzzleForElo(config.elo);
+      const session = new PuzzleSession(puzzle);
+      const moveRecord = history[history.length - 1] ?? {
+        ply: 1,
+        san: 'e4',
+        from: 'e2',
+        to: 'e4',
+        fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        fenAfter: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+      };
+      set({
+        activeRedemption: {
+          blunderPly: moveRecord.ply,
+          blunderMove: moveRecord,
+          puzzle,
+          session,
+          livesRemaining: config.mode === 'redemption' ? config.lives : 3,
+          status: 'active',
+          timeRemainingMs: 15000,
+        },
+      });
+    },
   };
 });
+
+if (typeof window !== 'undefined') {
+  (window as any).__gameStore = useGameStore;
+}
